@@ -194,22 +194,29 @@ function drawGrowth(d, start, end) {
   hover($("growth"), f, pts);
 }
 
-function drawRank(d) {
-  const f = frame($("rank"), 220), hist = d.history;
-  if (hist.length < 2) {
-    $("rank").innerHTML = `<p class="note">Rank history starts after the second stats batch.</p>`;
-    return;
-  }
-  const t0 = +new Date(hist[0].at), t1 = +new Date(hist[hist.length - 1].at);
-  const best = Math.min(...hist.map((p) => p.rank)), worst = Math.max(...hist.map((p) => p.rank));
+function drawRank(d, start, end) {
+  const f = frame($("rank"), 220), hist = d.history, st = d.standing, fc = st.forecast;
+  const t0 = +new Date(start), t1 = +new Date(end);
+  const last = hist.length ? +new Date(hist[hist.length - 1].at) : Date.now();
+  const ranks = [...hist.map((p) => p.rank), st.rank, fc.finalRank];
+  const best = Math.min(...ranks), worst = Math.max(...ranks);
   const lo = Math.max(1, best - 2), hi = worst + 2;
-  const x = (t) => f.l + ((t - t0) / (t1 - t0 || 1)) * (f.w - f.l - f.r);
+  const x = (t) => f.l + ((t - t0) / (t1 - t0)) * (f.w - f.l - f.r);
   const y = (r) => f.t + ((r - lo) / (hi - lo)) * (f.h - f.t - f.b);
-  const path = hist.map((p, i) => `${i ? "L" : "M"}${x(+new Date(p.at))} ${y(p.rank)}`).join("");
-  $("rank").innerHTML = svgOpen(f, `Rank over time, now ${d.standing.rank}`) +
-    yAxis(f, axisTicks(lo, hi, 4).filter((v) => Number.isInteger(v)), y, (v) => `#${v}`) + dateAxis(f, x, t0, t1) +
-    `<path d="${path}" fill="none" stroke="var(--series)" stroke-width="2"/>` + marks(f) + "</svg>";
-  hover($("rank"), f, hist.map((p) => ({ x: x(+new Date(p.at)), y: y(p.rank), tip: `${dateTime(p.at)}<br>Rank <b>#${p.rank}</b>` })));
+  const step = hist.map((p, i) => {
+    const px = x(+new Date(p.at));
+    return i ? `H${px}V${y(p.rank)}` : `M${px} ${y(p.rank)}`;
+  }).join("");
+  const pts = hist.map((p) => ({ x: x(+new Date(p.at)), y: y(p.rank), tip: `${dateTime(p.at)}<br>Rank <b>#${p.rank}</b>` }));
+  pts.push({ x: x(t1), y: y(fc.finalRank), tip: `Dec 6 forecast<br>Rank <b>#${fc.finalRank}</b>` });
+  $("rank").innerHTML = svgOpen(f, `Rank now ${st.rank}, forecast finish ${fc.finalRank}`) +
+    yAxis(f, axisTicks(lo, hi, 4).filter((v) => Number.isInteger(v) && v >= 1), y, (v) => `#${v}`) + dateAxis(f, x, t0, t1) +
+    `<path d="M${x(last)} ${y(st.rank)}L${x(t1)} ${y(fc.finalRank)}" fill="none" stroke="var(--series)" stroke-width="2" stroke-dasharray="5 5"/>
+     <path d="${step}" fill="none" stroke="var(--series)" stroke-width="2"/>
+     <circle cx="${x(last)}" cy="${y(st.rank)}" r="4" fill="var(--series)" stroke="var(--surface)" stroke-width="2"/>
+     <text x="${f.w - f.r}" y="${Math.max(y(fc.finalRank) - 8, 12)}" text-anchor="end">#${fc.finalRank}</text>` +
+    marks(f) + "</svg>";
+  hover($("rank"), f, pts);
 }
 
 function drawDaily(d) {
@@ -283,7 +290,7 @@ function initDonor() {
       ? "The dashed line uses the last 24 hours. The band uses this folder's slow and fast days (20th to 80th percentile)."
       : "Early estimate: fewer than three full days of data, so the band is a flat 50% on either side of the current pace.";
     drawGrowth(d, window_.start, window_.end);
-    drawRank(d);
+    drawRank(d, window_.start, window_.end);
     drawDaily(d);
     drawMinimums(s, window_);
     drawRivals(d, window_);
