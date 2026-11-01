@@ -293,10 +293,8 @@ func currentRate(rules Rules, s series, points int64, last time.Time) float64 {
 	if span := last.Sub(first.At); span >= minRateSpan {
 		return float64(points-s.points(first)) / span.Hours() * 24
 	}
-	if s.donor.BaselineError == 0 {
-		if span := last.Sub(rules.Start); span > 0 {
-			return float64(points) / span.Hours() * 24
-		}
+	if span := last.Sub(rules.Start); span > 0 {
+		return float64(points) / span.Hours() * 24
 	}
 	return 0
 }

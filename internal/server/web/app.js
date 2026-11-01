@@ -221,7 +221,7 @@ function drawRank(d, start, end) {
 
 function drawDaily(d) {
   const f = frame($("daily"), 220), days = d.daily;
-  if (!days.length) { $("daily").innerHTML = `<p class="note">No daily output yet.</p>`; return; }
+  if (!days.some((v) => v.points > 0)) { $("daily").innerHTML = `<p class="note">No daily output seen yet.</p>`; return; }
   const hi = Math.max(...days.map((v) => v.points), 1), ticks = axisTicks(0, hi, 4);
   const top = Math.max(hi, ticks[ticks.length - 1]);
   const width = (f.w - f.l - f.r) / Math.max(days.length, 7);
@@ -242,12 +242,12 @@ function drawMinimums(s, o) {
   const e = s.eligibility;
   const row = (label, have, need, text) => `<li><div class="row"><span>${label}</span><span>${text}</span></div>
     <div class="meter"><i style="width:${Math.min(100, (100 * have) / need)}%"></i></div></li>`;
-  const hidden = e.hiddenDays ? ` Up to ${e.hiddenDays} earlier active days may not be counted yet.` : "";
+  const hidden = e.hiddenDays ? ` Up to ${e.hiddenDays} earlier active day${e.hiddenDays === 1 ? "" : "s"} may not be counted yet.` : "";
   const days = e.met ? "All minimums met" : e.reachable
     ? `${e.remainingDays} days left, ${Math.max(0, o.minDays - e.activeDays)} more active days needed.${hidden}`
     : `Not enough days left to reach ${o.minDays} active days`;
   $("minimums").innerHTML =
-    row("Active days", e.activeDays, o.minDays, `${e.hiddenDays ? "at least " : ""}${e.activeDays} of ${o.minDays}`) +
+    row("Active days", e.activeDays, o.minDays, `${e.hiddenDays && e.activeDays ? "at least " : ""}${e.activeDays} of ${o.minDays}`) +
     row("Points", s.points, o.minPoints, `${short(s.points)} of ${short(o.minPoints)}`) +
     row("Work units", s.wus, o.minWus, `${s.wus} of ${o.minWus}`) +
     `<li class="muted">${days}</li>`;
@@ -256,7 +256,7 @@ function drawMinimums(s, o) {
 function drawRivals(d, o) {
   const s = d.standing;
   const daysLeft = Math.max(0, (new Date(o.end) - new Date(o.lastSample)) / 864e5);
-  const eta = (days, text) => (days <= daysLeft ? `${text} in about ${Math.ceil(days)} days` : "no pass before the event ends at this pace");
+  const eta = (days, text) => (days <= daysLeft ? `${text} in about ${Math.ceil(days)} day${Math.ceil(days) === 1 ? "" : "s"}` : "no pass before the event ends at this pace");
   const gap = (o, word) => {
     if (!o) return "";
     const diff = o.forecast.pointsPerDay - s.forecast.pointsPerDay;

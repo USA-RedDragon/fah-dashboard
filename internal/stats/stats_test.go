@@ -196,3 +196,13 @@ func TestPartial24hUntilADayOfHistory(t *testing.T) {
 		t.Errorf("early = %+v", early.Overview)
 	}
 }
+
+func TestApproximateTotalStillGivesAPace(t *testing.T) {
+	t.Parallel()
+	now := date(2, 0)
+	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a", BaselineError: 100}},
+		[]store.Sample{{DonorID: 1, At: now, Score: 1000, WUs: 5}}, nil, now)
+	if f := view.Overview.Standings[0].Forecast; f.PointsPerDay != 1000 || f.Final <= 1000 {
+		t.Errorf("forecast = %+v", f)
+	}
+}
