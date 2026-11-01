@@ -10,6 +10,8 @@ import (
 	"log/slog"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
 	"github.com/USA-RedDragon/fah-dashboard/internal/config"
@@ -36,7 +38,7 @@ func NewServer(cfg *config.Config, view ViewFunc) (*Server, error) {
 	}
 	return &Server{
 		server: &http.Server{
-			Addr:              net.JoinHostPort(cfg.HTTP.Bind, fmt.Sprint(cfg.HTTP.Port)),
+			Addr:              net.JoinHostPort(strings.Trim(cfg.HTTP.Bind, "[]"), strconv.Itoa(cfg.HTTP.Port)),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      defTimeout,
 			Handler:           newMux(web, view),

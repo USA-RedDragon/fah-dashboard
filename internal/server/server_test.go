@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/USA-RedDragon/configulator/v2"
 	"github.com/USA-RedDragon/fah-dashboard/internal/config"
 	"github.com/USA-RedDragon/fah-dashboard/internal/server"
 	"github.com/USA-RedDragon/fah-dashboard/internal/stats"
@@ -17,6 +18,11 @@ import (
 )
 
 func start(t *testing.T, view server.ViewFunc) string {
+	t.Helper()
+	return startOn(t, "127.0.0.1", view)
+}
+
+func startOn(t *testing.T, bind string, view server.ViewFunc) string {
 	t.Helper()
 	l, err := (&net.ListenConfig{}).Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
@@ -30,7 +36,7 @@ func start(t *testing.T, view server.ViewFunc) string {
 		t.Fatal(err)
 	}
 
-	srv, err := server.NewServer(&config.Config{HTTP: config.HTTP{Bind: "127.0.0.1", Port: addr.Port}}, view)
+	srv, err := server.NewServer(&config.Config{HTTP: config.HTTP{Bind: bind, Port: addr.Port}}, view)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -96,5 +102,17 @@ func TestNoDataYet(t *testing.T) {
 	page := get(t, base+"/")
 	if !strings.HasPrefix(page.Header.Get("Content-Type"), "text/html") {
 		t.Errorf("type = %q", page.Header.Get("Content-Type"))
+	}
+}
+
+func TestDefaultBindListens(t *testing.T) {
+	t.Parallel()
+	cfg, err := configulator.New(config.ConfigSchema()).Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	base := startOn(t, cfg.HTTP.Bind, func() *stats.View { return nil })
+	if got := get(t, base+"/healthz").StatusCode; got != http.StatusOK {
+		t.Errorf("status = %d", got)
 	}
 }
