@@ -52,7 +52,7 @@ async function load(url, render) {
 function initOverview() {
   let data, query = "", key = "rank", desc = false;
   const columns = [
-    ["rank", "#"], ["name", "Folder"], ["points", "Points"], ["points24h", "Recent"],
+    ["rank", "#"], ["name", "Folder"], ["points", "Points"], ["points24h", "24 h"],
     ["wus", "WUs"], ["rankChange24h", "Move"], ["final", "Forecast"],
   ];
   const value = (s, k) => (k === "final" ? s.forecast.final : s[k]);
@@ -65,8 +65,7 @@ function initOverview() {
       const c = typeof x === "string" ? x.localeCompare(y) : x - y;
       return desc ? -c : c;
     });
-    const recent = data.partial24h ? `Since ${new Date(data.tracking).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "24 h";
-    const head = columns.map(([k, name]) => [k, k === "points24h" ? recent : name]).map(([k, label]) => `<th scope="col" aria-sort="${k === key ? (desc ? "descending" : "ascending") : "none"}"><button data-k="${k}">${label}</button></th>`).join("");
+    const head = columns.map(([k, name]) => [k, k === "points24h" && data.partial24h ? "~24 h" : name]).map(([k, label]) => `<th scope="col" aria-sort="${k === key ? (desc ? "descending" : "ascending") : "none"}"><button data-k="${k}">${label}</button></th>`).join("");
     const body = rows.map((s) => `<tr>
       <td>${s.rank}</td>
       <td><a href="/donor/${encodeURIComponent(s.name)}">${esc(s.name)}</a></td>
@@ -96,7 +95,7 @@ function initOverview() {
     const ltt = o.teams.find((t) => t.team === o.team);
     $("tiles").innerHTML =
       tile("Team LTT this event", ltt ? short(ltt.credit) : "n/a", ltt ? `rank ${ltt.rank} of tracked teams` : "") +
-      tile("Team points, 24 h", ltt ? short(ltt.credit24h) : "n/a", o.partial24h ? "since tracking began" : "") +
+      tile("Team points, 24 h", ltt ? short(ltt.credit24h) : "n/a", o.partial24h ? "estimated until tracking has a full day" : "") +
       tile("Participants folding", `${o.active} of ${o.donors}`, "points seen since tracking began") +
       tile("Time left", `${days}d ${hours}h`, "ends Dec 6 23:59 UTC");
     drawBoard();
@@ -175,6 +174,7 @@ function drawGrowth(d, start, end) {
   const f = frame($("growth"), 300), st = d.standing, fc = st.forecast;
   const t0 = +new Date(start), t1 = +new Date(end);
   const hist = d.history.map((p) => ({ t: +new Date(p.at), v: p.points }));
+  if (!st.pointsError) hist.unshift({ t: t0, v: 0 });
   const lastT = hist.length ? hist[hist.length - 1].t : Date.now();
   const hi = Math.max(fc.high, st.points, 1);
   const ticks = axisTicks(0, hi, 4);
@@ -285,7 +285,7 @@ function initDonor() {
     $("tiles").innerHTML =
       tile("Rank", `#${s.rank}`, `of ${d.field} participants`) +
       tile("Points this event", `${s.pointsError ? "~" : ""}${short(s.points)}`, s.pointsError ? `may be low by up to ${short(s.pointsError)}` : full(s.points)) +
-      tile("Pace", `${short(fc.pointsPerDay)}/day`, `${short(s.points24h)} ${window_.partial24h ? "since tracking began" : "in the last 24 h"}`) +
+      tile("Pace", `${short(fc.pointsPerDay)}/day`, `${window_.partial24h ? "~" : ""}${short(s.points24h)} in the last 24 h`) +
       tile("Forecast finish", short(fc.final), `rank #${fc.finalRank}, range ${short(fc.low)} to ${short(fc.high)}`);
     $("forecastNote").textContent = fc.confident
       ? "The dashed line uses the last 24 hours. The band uses this folder's slow and fast days (20th to 80th percentile)."

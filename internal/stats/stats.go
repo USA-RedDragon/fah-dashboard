@@ -108,7 +108,6 @@ type Overview struct {
 	MinWUs     int64          `json:"minWus"`
 	LastSample time.Time      `json:"lastSample"`
 	Partial24h bool           `json:"partial24h"`
-	Tracking   time.Time      `json:"tracking"`
 	Unresolved []string       `json:"unresolved"`
 	Start      time.Time      `json:"start"`
 	End        time.Time      `json:"end"`
@@ -193,16 +192,15 @@ func Build(rules Rules, donors []store.Donor, samples []store.Sample, teams []st
 		standings = append(standings, standing(rules, s, last))
 	}
 	rankStandings(standings)
-	applyRankChange(standings, all, last.Add(-day))
+	applyRankChange(standings, all, latest(last.Add(-day), first))
 	applyFinalRanks(standings)
 
 	view := &View{
 		Overview: Overview{
 			Now: now, Team: rules.Team, MinDays: rules.MinDays, MinPoints: rules.MinPoints, MinWUs: rules.MinWUs,
 			LastSample: last, Start: rules.Start, End: rules.End,
-			Partial24h: last.Sub(first) < day,
-			Tracking:   first,
-			Donors:     len(standings), Standings: standings, Teams: teamStandings(teams, last),
+			Partial24h: last.Sub(first) < day && last.Sub(rules.Start) > day,
+			Donors:     len(standings), Standings: standings, Teams: teamStandings(rules, teams, last),
 		},
 		details: make(map[int64]DonorDetail, len(standings)),
 		byName:  make(map[string]int64, len(standings)),
@@ -240,6 +238,25 @@ func Build(rules Rules, donors []store.Donor, samples []store.Sample, teams []st
 	return view
 }
 
+func latest(a, b time.Time) time.Time {
+	if a.After(b) {
+		return a
+	}
+	return b
+}
+
+// scaleToWindow estimates how much of total, earned between the event start
+// and firstSeen, had been earned 24 hours before last. The API has no history
+// from before tracking began, so this assumes a steady rate over that span.
+func scaleToWindow(rules Rules, total int64, firstSeen, last time.Time) int64 {
+	before := last.Add(-day).Sub(rules.Start)
+	span := firstSeen.Sub(rules.Start)
+	if before <= 0 || span <= 0 {
+		return 0
+	}
+	return int64(float64(total) * min(before.Seconds()/span.Seconds(), 1))
+}
+
 func standing(rules Rules, s series, last time.Time) Standing {
 	latest := s.samples[len(s.samples)-1]
 	st := Standing{
@@ -252,7 +269,7 @@ func standing(rules Rules, s series, last time.Time) Standing {
 	if old, ok := s.at(last.Add(-day)); ok {
 		st.Points24h = st.Points - s.points(old)
 	} else {
-		st.Points24h = st.Points - s.points(s.samples[0])
+		st.Points24h = st.Points - scaleToWindow(rules, s.points(s.samples[0]), s.samples[0].At, last)
 	}
 	st.Forecast = forecast(rules, s, st.Points, last)
 	st.Eligibility = eligibility(rules, s, st, last)
@@ -480,17 +497,21 @@ func rankHistories(all []series) map[int64][]Point {
 
 // teamStandings adds each team's latest credit across the months of the
 // event, which keeps totals correct when the monthly board rolls over.
-func teamStandings(samples []store.TeamSample, last time.Time) []TeamStanding {
+func teamStandings(rules Rules, samples []store.TeamSample, last time.Time) []TeamStanding {
 	type key struct {
 		team, month int
 	}
 	latest := map[key]store.TeamSample{}
 	dayAgo := map[key]store.TeamSample{}
+	first := map[key]store.TeamSample{}
 	then := last.Add(-day)
 	for _, v := range samples {
 		k := key{v.Team, v.Month}
 		latest[k] = v
-		if _, ok := dayAgo[k]; !ok || !v.At.After(then) {
+		if _, ok := first[k]; !ok {
+			first[k] = v
+		}
+		if !v.At.After(then) {
 			dayAgo[k] = v
 		}
 	}
@@ -504,7 +525,11 @@ func teamStandings(samples []store.TeamSample, last time.Time) []TeamStanding {
 		}
 		t.Credit += v.Credit
 		t.WUs += v.WUs
-		t.Credit24h += v.Credit - dayAgo[k].Credit
+		if old, ok := dayAgo[k]; ok {
+			t.Credit24h += v.Credit - old.Credit
+		} else {
+			t.Credit24h += v.Credit - scaleToWindow(rules, first[k].Credit, first[k].At, last)
+		}
 	}
 
 	out := make([]TeamStanding, 0, len(byTeam))

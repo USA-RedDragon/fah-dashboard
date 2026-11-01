@@ -186,23 +186,38 @@ func TestLateFirstSampleLeavesDaysReachable(t *testing.T) {
 	}
 }
 
-func TestPartial24hUntilADayOfHistory(t *testing.T) {
+func TestFirstEventDayCountsEverything(t *testing.T) {
 	t.Parallel()
-	donors := []store.Donor{{ID: 1, Name: "a"}}
-	early := stats.Build(rules(), donors, []store.Sample{
-		{DonorID: 1, At: date(2, 0), Score: 100}, {DonorID: 1, At: date(2, 6), Score: 150},
-	}, nil, date(2, 6))
-	if a := early.Overview.Standings[0]; !early.Overview.Partial24h || a.Points24h != 50 {
-		t.Errorf("early = %+v", early.Overview)
+	now := date(1, 22)
+	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a"}},
+		[]store.Sample{{DonorID: 1, At: now, Score: 100}},
+		[]store.TeamSample{{Team: 1, At: now, Month: 202611, Name: "x", Credit: 40}}, now)
+	if a := view.Overview.Standings[0]; view.Overview.Partial24h || a.Points24h != 100 {
+		t.Errorf("standing = %+v", a)
+	}
+	if got := view.Overview.Teams[0].Credit24h; got != 40 {
+		t.Errorf("team 24h = %d", got)
 	}
 }
 
-func TestApproximateTotalStillGivesAPace(t *testing.T) {
+func TestWindowBeforeTrackingIsEstimated(t *testing.T) {
 	t.Parallel()
-	now := date(2, 0)
-	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a", BaselineError: 100}},
-		[]store.Sample{{DonorID: 1, At: now, Score: 1000, WUs: 5}}, nil, now)
-	if f := view.Overview.Standings[0].Forecast; f.PointsPerDay != 1000 || f.Final <= 1000 {
-		t.Errorf("forecast = %+v", f)
+	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a"}}, []store.Sample{
+		{DonorID: 1, At: date(2, 0), Score: 100}, {DonorID: 1, At: date(2, 6), Score: 150},
+	}, []store.TeamSample{{Team: 1, At: date(2, 0), Month: 202611, Name: "x", Credit: 100}}, date(2, 6))
+	if a := view.Overview.Standings[0]; !view.Overview.Partial24h || a.Points24h != 125 {
+		t.Errorf("standing = %+v", a)
+	}
+}
+
+func TestMoveComparesWithFirstRankings(t *testing.T) {
+	t.Parallel()
+	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a"}, {ID: 2, Name: "b"}}, []store.Sample{
+		{DonorID: 1, At: date(1, 22), Score: 100},
+		{DonorID: 2, At: date(1, 22), Score: 50},
+		{DonorID: 2, At: date(1, 23), Score: 300},
+	}, nil, date(1, 23))
+	if b, _ := view.Detail("b"); b.Standing.RankChange24h != 1 {
+		t.Errorf("b = %+v", b.Standing)
 	}
 }
