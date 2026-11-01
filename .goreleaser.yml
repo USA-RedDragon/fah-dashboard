@@ -1,0 +1,93 @@
+version: 2
+
+project_name: http-logger
+
+release:
+  extra_files:
+    - glob: ./LICENSE
+  github:
+    owner: USA-RedDragon
+    name: http-logger
+
+dockers:
+  - image_templates:
+      - "ghcr.io/usa-reddragon/http-logger:{{ .Tag }}-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:latest-amd64"
+    use: buildx
+    dockerfile: Dockerfile
+    goarch: amd64
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - --label=org.opencontainers.image.licenses=MIT
+      - --label=org.opencontainers.image.url=https://github.com/USA-RedDragon/{{ .ProjectName }}
+      - --label=org.opencontainers.image.source=https://github.com/USA-RedDragon/{{ .ProjectName }}
+      - "--platform=linux/amd64"
+  - image_templates:
+      - "ghcr.io/usa-reddragon/http-logger:{{ .Tag }}-arm64"
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}-arm64"
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}.{{ .Minor }}-arm64"
+      - "ghcr.io/usa-reddragon/http-logger:latest-arm64"
+    use: buildx
+    dockerfile: Dockerfile
+    goarch: arm64
+    build_flag_templates:
+      - "--pull"
+      - "--label=org.opencontainers.image.created={{.Date}}"
+      - "--label=org.opencontainers.image.title={{.ProjectName}}"
+      - "--label=org.opencontainers.image.revision={{.FullCommit}}"
+      - "--label=org.opencontainers.image.version={{.Version}}"
+      - --label=org.opencontainers.image.licenses=MIT
+      - --label=org.opencontainers.image.url=https://github.com/USA-RedDragon/{{ .ProjectName }}
+      - --label=org.opencontainers.image.source=https://github.com/USA-RedDragon/{{ .ProjectName }}
+      - "--platform=linux/arm64"
+
+docker_manifests:
+  - name_template: "ghcr.io/usa-reddragon/http-logger:{{ .Tag }}"
+    image_templates:
+      - "ghcr.io/usa-reddragon/http-logger:{{ .Tag }}-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:{{ .Tag }}-arm64"
+  - name_template: "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}"
+    image_templates:
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}-arm64"
+  - name_template: "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}.{{ .Minor }}"
+    image_templates:
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}.{{ .Minor }}-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:v{{ .Major }}.{{ .Minor }}-arm64"
+  - name_template: "ghcr.io/usa-reddragon/http-logger:latest"
+    image_templates:
+      - "ghcr.io/usa-reddragon/http-logger:latest-amd64"
+      - "ghcr.io/usa-reddragon/http-logger:latest-arm64"
+
+builds:
+  - main: .
+    binary: http-logger
+    goos:
+      - linux
+      - windows
+    goarch:
+      - amd64
+      - arm
+      - arm64
+      - riscv64
+    ignore:
+      - goos: windows
+        goarch: arm
+      - goos: windows
+        goarch: riscv64
+    goarm:
+      - "6"
+      - "7"
+    env:
+      - CGO_ENABLED=0
+    flags:
+      - -trimpath
+
+milestones:
+  - close: true

@@ -1,0 +1,9 @@
+# Sample configuration
+# Logging level for the application. One of debug, info, warn, or error
+log-level: "info"
+# HTTP server configuration
+http:
+  # Address to listen on. The default, [::], listens on all interfaces
+  bind: "[::]"
+  # Port to listen on
+  port: 8080
