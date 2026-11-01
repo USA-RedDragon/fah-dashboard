@@ -12,7 +12,7 @@ concurrency:
 
 jobs:
   backend-benchmark-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       checks: write
@@ -31,7 +31,7 @@ jobs:
       - run: CGO_ENABLED=0 go test -run ^$ -benchmem -bench=. ./...
 
   backend-race-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       checks: write
@@ -52,7 +52,7 @@ jobs:
           go test ./... -race
 
   backend-unit-tests:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
       checks: write
@@ -106,7 +106,7 @@ jobs:
           retention-days: 30
 
   backend-unit-tests-coverage:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     permissions:
       contents: read
 
