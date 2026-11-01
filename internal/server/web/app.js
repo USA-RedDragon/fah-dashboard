@@ -122,8 +122,8 @@ function axisTicks(lo, hi, count) {
   return out;
 }
 
-function frame(height) {
-  return { w: 720, h: height, l: 58, r: 14, t: 10, b: 24 };
+function frame(el, height) {
+  return { w: Math.max(el.clientWidth, 280), h: height, l: 54, r: 12, t: 10, b: 24 };
 }
 
 function svgOpen(f, label) {
@@ -163,7 +163,7 @@ const marks = (f) => `<line class="rule" y1="${f.t}" y2="${f.h - f.b}" stroke="v
 
 function dateAxis(f, x, t0, t1) {
   const out = [];
-  const stepDays = Math.max(1, Math.ceil((t1 - t0) / 864e5 / 6));
+  const stepDays = Math.max(1, Math.ceil((t1 - t0) / 864e5 / Math.floor(f.w / 80)));
   for (let t = Math.ceil(t0 / 864e5) * 864e5; t <= t1; t += stepDays * 864e5) {
     out.push(`<text x="${x(t)}" y="${f.h - 6}" text-anchor="middle">${dayLabel(t)}</text>`);
   }
@@ -171,7 +171,7 @@ function dateAxis(f, x, t0, t1) {
 }
 
 function drawGrowth(d, start, end) {
-  const f = frame(300), st = d.standing, fc = st.forecast;
+  const f = frame($("growth"), 300), st = d.standing, fc = st.forecast;
   const t0 = +new Date(start), t1 = +new Date(end);
   const hist = d.history.map((p) => ({ t: +new Date(p.at), v: p.points }));
   const lastT = hist.length ? hist[hist.length - 1].t : Date.now();
@@ -195,7 +195,7 @@ function drawGrowth(d, start, end) {
 }
 
 function drawRank(d) {
-  const f = frame(220), hist = d.history;
+  const f = frame($("rank"), 220), hist = d.history;
   if (hist.length < 2) {
     $("rank").innerHTML = `<p class="note">Rank history starts after the second stats batch.</p>`;
     return;
@@ -213,7 +213,7 @@ function drawRank(d) {
 }
 
 function drawDaily(d) {
-  const f = frame(220), days = d.daily;
+  const f = frame($("daily"), 220), days = d.daily;
   if (!days.length) { $("daily").innerHTML = `<p class="note">No daily output yet.</p>`; return; }
   const hi = Math.max(...days.map((v) => v.points), 1), ticks = axisTicks(0, hi, 4);
   const top = Math.max(hi, ticks[ticks.length - 1]);
@@ -237,7 +237,7 @@ function drawMinimums(s, o) {
     <div class="meter"><i style="width:${Math.min(100, (100 * have) / need)}%"></i></div></li>`;
   const hidden = e.hiddenDays ? ` Up to ${e.hiddenDays} earlier active days may not be counted yet.` : "";
   const days = e.met ? "All minimums met" : e.reachable
-    ? `${e.remainingDays} days left, and at most ${Math.max(0, o.minDays - e.activeDays)} more active days needed.${hidden}`
+    ? `${e.remainingDays} days left, ${Math.max(0, o.minDays - e.activeDays)} more active days needed.${hidden}`
     : `Not enough days left to reach ${o.minDays} active days`;
   $("minimums").innerHTML =
     row("Active days", e.activeDays, o.minDays, `${e.hiddenDays ? "at least " : ""}${e.activeDays} of ${o.minDays}`) +

@@ -279,10 +279,10 @@ func (c *Collector) updateBaseline(ctx context.Context, u fah.User, score, wus i
 	return nil
 }
 
-// spellings maps each roster name to the donor name to read. F@H turns spaces
-// into underscores and forum names can differ in punctuation, so a name is
-// matched against the team list and monthly board with both reduced to
-// lowercase letters and digits.
+// spellings maps each roster name to the donor name to try after the exact
+// name fails. F@H turns spaces into underscores and forum names can differ in
+// punctuation, so a name is matched against the team list and monthly board
+// with both reduced to lowercase letters and digits.
 func (c *Collector) spellings(ctx context.Context, credits eventCredit) (map[string]string, error) {
 	members, err := c.api.TeamMembers(ctx, c.opts.Rules.Team)
 	if err != nil {
@@ -310,6 +310,14 @@ func (c *Collector) spellings(ctx context.Context, credits eventCredit) (map[str
 	return out, nil
 }
 
+func (c *Collector) readUser(ctx context.Context, wanted, alternate string) (fah.User, error) {
+	u, err := c.api.User(ctx, wanted)
+	if errors.Is(err, fah.ErrNotFound) && alternate != wanted {
+		return c.api.User(ctx, alternate)
+	}
+	return u, err
+}
+
 func normalize(name string) string {
 	return strings.Map(func(r rune) rune {
 		if unicode.IsLetter(r) || unicode.IsDigit(r) {
@@ -330,7 +338,7 @@ func (c *Collector) readUsers(ctx context.Context, names map[string]string) ([]r
 	group.SetLimit(sweepWorkers)
 	for wanted, donor := range names {
 		group.Go(func() error {
-			u, err := c.api.User(ctx, donor)
+			u, err := c.readUser(ctx, wanted, donor)
 			mu.Lock()
 			defer mu.Unlock()
 			switch {

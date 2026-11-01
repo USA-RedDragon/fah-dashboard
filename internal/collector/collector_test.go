@@ -49,7 +49,9 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.userReads.Add(1)
 		fmt.Fprintf(w, `{"name":"big","id":1,"teams":[{"team":%d,"score":%d,"wus":600}]}`, team, f.bigScore.Load())
 	case r.URL.Path == fmt.Sprintf("/team/%d/members", team):
-		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7]]`)
+		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7],["ExactName",6,2,800,8]]`)
+	case r.URL.Path == "/user/Exact_Name":
+		fmt.Fprintf(w, `{"name":"Exact_Name","id":5,"teams":[{"team":%d,"score":1,"wus":1}]}`, team)
 	case r.URL.Path == "/user/space_name":
 		fmt.Fprintf(w, `{"name":"space_name","id":3,"teams":[{"team":%d,"score":700,"wus":7}]}`, team)
 	case r.URL.Path == "/user/late" && f.newcomer.Load():
@@ -90,7 +92,7 @@ func setup(t *testing.T) (*fakeAPI, *collector.Collector, *atomic.Pointer[time.T
 		MinSweep:      time.Minute,
 		RosterRefresh: time.Hour,
 		Roster: func(context.Context) ([]string, error) {
-			return []string{"big", "small", "missing", "Space Name", "late"}, nil
+			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name"}, nil
 		},
 		Now: func() time.Time { return *now.Load() },
 	})
@@ -228,6 +230,9 @@ func TestForumNameMatchesDonorSpelling(t *testing.T) {
 	}
 	if _, ok := c.View().Detail("space_name"); !ok {
 		t.Error("space_name not resolved")
+	}
+	if _, ok := c.View().Detail("Exact_Name"); !ok {
+		t.Error("exact name lost to a similar donor")
 	}
 	if got := c.View().Overview.Unresolved; len(got) != 2 || got[0] != "late" || got[1] != "missing" {
 		t.Errorf("unresolved = %v", got)
