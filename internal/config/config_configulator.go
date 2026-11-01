@@ -24,9 +24,30 @@ type hTTPShadow struct {
 	Port *int    `json:"port" toml:"port" yaml:"port"`
 }
 
+type eventShadow struct {
+	Team      *int    `json:"team"       toml:"team"       yaml:"team"`
+	Start     *string `json:"start"      toml:"start"      yaml:"start"`
+	End       *string `json:"end"        toml:"end"        yaml:"end"`
+	MinDays   *int    `json:"min-days"   toml:"min-days"   yaml:"min-days"`
+	MinPoints *int64  `json:"min-points" toml:"min-points" yaml:"min-points"`
+	MinWUs    *int64  `json:"min-wus"    toml:"min-wus"    yaml:"min-wus"`
+}
+
+type collectShadow struct {
+	RosterURL      *string  `json:"roster-url"          toml:"roster-url"          yaml:"roster-url"`
+	APIURL         *string  `json:"api-url"             toml:"api-url"             yaml:"api-url"`
+	PollSeconds    *int     `json:"poll-seconds"        toml:"poll-seconds"        yaml:"poll-seconds"`
+	MinSweepSecs   *int     `json:"min-sweep-seconds"   toml:"min-sweep-seconds"   yaml:"min-sweep-seconds"`
+	RosterSeconds  *int     `json:"roster-seconds"      toml:"roster-seconds"      yaml:"roster-seconds"`
+	RequestsPerSec *float64 `json:"requests-per-second" toml:"requests-per-second" yaml:"requests-per-second"`
+}
+
 type configShadow struct {
-	LogLevel *string     `json:"log-level" toml:"log-level" yaml:"log-level"`
-	HTTP     *hTTPShadow `json:"http"      toml:"http"      yaml:"http"`
+	LogLevel *string        `json:"log-level" toml:"log-level" yaml:"log-level"`
+	HTTP     *hTTPShadow    `json:"http"      toml:"http"      yaml:"http"`
+	Database *string        `json:"database"  toml:"database"  yaml:"database"`
+	Event    *eventShadow   `json:"event"     toml:"event"     yaml:"event"`
+	Collect  *collectShadow `json:"collect"   toml:"collect"   yaml:"collect"`
 }
 
 // ConfigSchema returns the generated schema for Config.
@@ -45,6 +66,32 @@ func configApplyDefaults(cfg *Config, _ string, set configulator.SetOrigin) erro
 	set("http.bind", configulator.LayerDefault, "default tag")
 	cfg.HTTP.Port = 8080
 	set("http.port", configulator.LayerDefault, "default tag")
+	cfg.Database = "fah-dashboard.db"
+	set("database", configulator.LayerDefault, "default tag")
+	cfg.Event.Team = 223518
+	set("event.team", configulator.LayerDefault, "default tag")
+	cfg.Event.Start = "2026-11-01T00:00:00Z"
+	set("event.start", configulator.LayerDefault, "default tag")
+	cfg.Event.End = "2026-12-07T00:00:00Z"
+	set("event.end", configulator.LayerDefault, "default tag")
+	cfg.Event.MinDays = 30
+	set("event.min-days", configulator.LayerDefault, "default tag")
+	cfg.Event.MinPoints = int64(1000000)
+	set("event.min-points", configulator.LayerDefault, "default tag")
+	cfg.Event.MinWUs = int64(50)
+	set("event.min-wus", configulator.LayerDefault, "default tag")
+	cfg.Collect.RosterURL = "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474"
+	set("collect.roster-url", configulator.LayerDefault, "default tag")
+	cfg.Collect.APIURL = "https://api.foldingathome.org"
+	set("collect.api-url", configulator.LayerDefault, "default tag")
+	cfg.Collect.PollSeconds = 60
+	set("collect.poll-seconds", configulator.LayerDefault, "default tag")
+	cfg.Collect.MinSweepSecs = 300
+	set("collect.min-sweep-seconds", configulator.LayerDefault, "default tag")
+	cfg.Collect.RosterSeconds = 3600
+	set("collect.roster-seconds", configulator.LayerDefault, "default tag")
+	cfg.Collect.RequestsPerSec = 1.0
+	set("collect.requests-per-second", configulator.LayerDefault, "default tag")
 	return nil
 }
 
@@ -74,6 +121,62 @@ func (s *configShadow) applyTo(cfg *Config, _ string, set configulator.SetOrigin
 			set("http.port", configulator.LayerFile, file)
 		}
 	}
+	if s.Database != nil {
+		cfg.Database = *s.Database
+		set("database", configulator.LayerFile, file)
+	}
+	if s.Event != nil {
+		if s.Event.Team != nil {
+			cfg.Event.Team = *s.Event.Team
+			set("event.team", configulator.LayerFile, file)
+		}
+		if s.Event.Start != nil {
+			cfg.Event.Start = *s.Event.Start
+			set("event.start", configulator.LayerFile, file)
+		}
+		if s.Event.End != nil {
+			cfg.Event.End = *s.Event.End
+			set("event.end", configulator.LayerFile, file)
+		}
+		if s.Event.MinDays != nil {
+			cfg.Event.MinDays = *s.Event.MinDays
+			set("event.min-days", configulator.LayerFile, file)
+		}
+		if s.Event.MinPoints != nil {
+			cfg.Event.MinPoints = *s.Event.MinPoints
+			set("event.min-points", configulator.LayerFile, file)
+		}
+		if s.Event.MinWUs != nil {
+			cfg.Event.MinWUs = *s.Event.MinWUs
+			set("event.min-wus", configulator.LayerFile, file)
+		}
+	}
+	if s.Collect != nil {
+		if s.Collect.RosterURL != nil {
+			cfg.Collect.RosterURL = *s.Collect.RosterURL
+			set("collect.roster-url", configulator.LayerFile, file)
+		}
+		if s.Collect.APIURL != nil {
+			cfg.Collect.APIURL = *s.Collect.APIURL
+			set("collect.api-url", configulator.LayerFile, file)
+		}
+		if s.Collect.PollSeconds != nil {
+			cfg.Collect.PollSeconds = *s.Collect.PollSeconds
+			set("collect.poll-seconds", configulator.LayerFile, file)
+		}
+		if s.Collect.MinSweepSecs != nil {
+			cfg.Collect.MinSweepSecs = *s.Collect.MinSweepSecs
+			set("collect.min-sweep-seconds", configulator.LayerFile, file)
+		}
+		if s.Collect.RosterSeconds != nil {
+			cfg.Collect.RosterSeconds = *s.Collect.RosterSeconds
+			set("collect.roster-seconds", configulator.LayerFile, file)
+		}
+		if s.Collect.RequestsPerSec != nil {
+			cfg.Collect.RequestsPerSec = *s.Collect.RequestsPerSec
+			set("collect.requests-per-second", configulator.LayerFile, file)
+		}
+	}
 	return nil
 }
 
@@ -99,6 +202,130 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 		cfg.HTTP.Port = int(p)
 		set("http.port", configulator.LayerEnv, n)
 	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "database"); ok {
+		cfg.Database = v
+		set("database", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "event", "team"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.team",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Event.Team = int(p)
+		set("event.team", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "event", "start"); ok {
+		cfg.Event.Start = v
+		set("event.start", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "event", "end"); ok {
+		cfg.Event.End = v
+		set("event.end", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "event", "min-days"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.min-days",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Event.MinDays = int(p)
+		set("event.min-days", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "event", "min-points"); ok {
+		p, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.min-points",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Event.MinPoints = p
+		set("event.min-points", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "event", "min-wus"); ok {
+		p, err := strconv.ParseInt(v, 10, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.min-wus",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Event.MinWUs = p
+		set("event.min-wus", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "roster-url"); ok {
+		cfg.Collect.RosterURL = v
+		set("collect.roster-url", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "api-url"); ok {
+		cfg.Collect.APIURL = v
+		set("collect.api-url", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "poll-seconds"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.poll-seconds",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Collect.PollSeconds = int(p)
+		set("collect.poll-seconds", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "min-sweep-seconds"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.min-sweep-seconds",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Collect.MinSweepSecs = int(p)
+		set("collect.min-sweep-seconds", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "roster-seconds"); ok {
+		p, err := strconv.ParseInt(v, 10, strconv.IntSize)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.roster-seconds",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Collect.RosterSeconds = int(p)
+		set("collect.roster-seconds", configulator.LayerEnv, n)
+	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "requests-per-second"); ok {
+		p, err := strconv.ParseFloat(v, 64)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.requests-per-second",
+				Source: n,
+				Value:  v,
+			}
+		}
+		cfg.Collect.RequestsPerSec = p
+		set("collect.requests-per-second", configulator.LayerEnv, n)
+	}
 	return nil
 }
 
@@ -115,6 +342,19 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 		"log-level",
 		"http" + o.Separator + "bind",
 		"http" + o.Separator + "port",
+		"database",
+		"event" + o.Separator + "team",
+		"event" + o.Separator + "start",
+		"event" + o.Separator + "end",
+		"event" + o.Separator + "min-days",
+		"event" + o.Separator + "min-points",
+		"event" + o.Separator + "min-wus",
+		"collect" + o.Separator + "roster-url",
+		"collect" + o.Separator + "api-url",
+		"collect" + o.Separator + "poll-seconds",
+		"collect" + o.Separator + "min-sweep-seconds",
+		"collect" + o.Separator + "roster-seconds",
+		"collect" + o.Separator + "requests-per-second",
 	}
 	for i, name := range names {
 		if f := fs.Lookup(name); f != nil {
@@ -133,6 +373,19 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.String(names[0], "info", "Logging level for the application. One of debug, info, warn, or error")
 	fs.String(names[1], "[::]", "Address to listen on. The default, [::], listens on all interfaces")
 	fs.Var(impl.NewInt(8080), names[2], "Port to listen on")
+	fs.String(names[3], "fah-dashboard.db", "Path to the SQLite database")
+	fs.Var(impl.NewInt(223518), names[4], "Folding@home team ID")
+	fs.String(names[5], "2026-11-01T00:00:00Z", "Event start time in RFC 3339 format")
+	fs.String(names[6], "2026-12-07T00:00:00Z", "Event end time in RFC 3339 format")
+	fs.Var(impl.NewInt(30), names[7], "Active days needed for prizes and badges")
+	fs.Int64(names[8], 1000000, "Points needed for prizes and badges")
+	fs.Int64(names[9], 50, "Work units needed for prizes and badges")
+	fs.String(names[10], "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474", "CSV export URL of the sign-up sheet")
+	fs.String(names[11], "https://api.foldingathome.org", "Root URL of the Folding@home stats API")
+	fs.Var(impl.NewInt(60), names[12], "Seconds between checks for a new stats batch")
+	fs.Var(impl.NewInt(300), names[13], "Minimum seconds between reads of every donor")
+	fs.Var(impl.NewInt(3600), names[14], "Seconds between reads of the sign-up sheet")
+	fs.Float64(names[15], 1.0, "Maximum requests each second to the stats API")
 	return nil
 }
 
@@ -172,6 +425,162 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, _ stri
 		}
 		cfg.HTTP.Port = v
 		set("http.port", configulator.LayerCLI, "--"+n)
+	}
+	if n := "database"; fs.Changed(n) {
+		v, err := fs.GetString(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "database",
+				Source: "--" + n,
+			}
+		}
+		cfg.Database = v
+		set("database", configulator.LayerCLI, "--"+n)
+	}
+	if n := "event" + o.Separator + "team"; fs.Changed(n) {
+		v, err := fs.GetInt(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.team",
+				Source: "--" + n,
+			}
+		}
+		cfg.Event.Team = v
+		set("event.team", configulator.LayerCLI, "--"+n)
+	}
+	if n := "event" + o.Separator + "start"; fs.Changed(n) {
+		v, err := fs.GetString(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.start",
+				Source: "--" + n,
+			}
+		}
+		cfg.Event.Start = v
+		set("event.start", configulator.LayerCLI, "--"+n)
+	}
+	if n := "event" + o.Separator + "end"; fs.Changed(n) {
+		v, err := fs.GetString(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.end",
+				Source: "--" + n,
+			}
+		}
+		cfg.Event.End = v
+		set("event.end", configulator.LayerCLI, "--"+n)
+	}
+	if n := "event" + o.Separator + "min-days"; fs.Changed(n) {
+		v, err := fs.GetInt(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.min-days",
+				Source: "--" + n,
+			}
+		}
+		cfg.Event.MinDays = v
+		set("event.min-days", configulator.LayerCLI, "--"+n)
+	}
+	if n := "event" + o.Separator + "min-points"; fs.Changed(n) {
+		v, err := fs.GetInt64(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.min-points",
+				Source: "--" + n,
+			}
+		}
+		cfg.Event.MinPoints = v
+		set("event.min-points", configulator.LayerCLI, "--"+n)
+	}
+	if n := "event" + o.Separator + "min-wus"; fs.Changed(n) {
+		v, err := fs.GetInt64(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "event.min-wus",
+				Source: "--" + n,
+			}
+		}
+		cfg.Event.MinWUs = v
+		set("event.min-wus", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "roster-url"; fs.Changed(n) {
+		v, err := fs.GetString(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.roster-url",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.RosterURL = v
+		set("collect.roster-url", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "api-url"; fs.Changed(n) {
+		v, err := fs.GetString(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.api-url",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.APIURL = v
+		set("collect.api-url", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "poll-seconds"; fs.Changed(n) {
+		v, err := fs.GetInt(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.poll-seconds",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.PollSeconds = v
+		set("collect.poll-seconds", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "min-sweep-seconds"; fs.Changed(n) {
+		v, err := fs.GetInt(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.min-sweep-seconds",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.MinSweepSecs = v
+		set("collect.min-sweep-seconds", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "roster-seconds"; fs.Changed(n) {
+		v, err := fs.GetInt(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.roster-seconds",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.RosterSeconds = v
+		set("collect.roster-seconds", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "requests-per-second"; fs.Changed(n) {
+		v, err := fs.GetFloat64(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.requests-per-second",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.RequestsPerSec = v
+		set("collect.requests-per-second", configulator.LayerCLI, "--"+n)
 	}
 	return nil
 }
@@ -224,6 +633,57 @@ func (s *configShadow) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 					return err
 				}
 				s.HTTP = &sub
+			}
+		case "database":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindString:
+				str := v.String()
+				s.Database = &str
+			default:
+				return configJSONError("database", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+			}
+		case "event":
+			if dec.PeekKind() == jsontext.KindNull {
+				if _, err := dec.ReadToken(); err != nil {
+					return err
+				}
+			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("event", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
+				var sub eventShadow
+				if err := sub.decodeJSON(dec, "event"); err != nil {
+					return err
+				}
+				s.Event = &sub
+			}
+		case "collect":
+			if dec.PeekKind() == jsontext.KindNull {
+				if _, err := dec.ReadToken(); err != nil {
+					return err
+				}
+			} else {
+				open, err := dec.ReadToken()
+				if err != nil {
+					return err
+				}
+				if open.Kind() != jsontext.KindBeginObject {
+					return configJSONError("collect", open, fmt.Errorf("expected an object, got %v", open.Kind()))
+				}
+				var sub collectShadow
+				if err := sub.decodeJSON(dec, "collect"); err != nil {
+					return err
+				}
+				s.Collect = &sub
 			}
 		default:
 			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
@@ -294,6 +754,252 @@ func (s *hTTPShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 	}
 }
 
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *eventShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
+	for {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if tok.Kind() == jsontext.KindEndObject {
+			return nil
+		}
+		switch key := tok.String(); key {
+		case "team":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".team", v, err)
+				}
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".team", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.Team = &num
+			default:
+				return configJSONError(path+".team", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		case "start":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindString:
+				str := v.String()
+				s.Start = &str
+			default:
+				return configJSONError(path+".start", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+			}
+		case "end":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindString:
+				str := v.String()
+				s.End = &str
+			default:
+				return configJSONError(path+".end", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+			}
+		case "min-days":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".min-days", v, err)
+				}
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".min-days", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.MinDays = &num
+			default:
+				return configJSONError(path+".min-days", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		case "min-points":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				num, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".min-points", v, err)
+				}
+				s.MinPoints = &num
+			default:
+				return configJSONError(path+".min-points", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		case "min-wus":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				num, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".min-wus", v, err)
+				}
+				s.MinWUs = &num
+			default:
+				return configJSONError(path+".min-wus", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		default:
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
+// decodeJSON decodes the members of an object whose opening brace has
+// been read. path is the object's dotted path.
+func (s *collectShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
+	for {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if tok.Kind() == jsontext.KindEndObject {
+			return nil
+		}
+		switch key := tok.String(); key {
+		case "roster-url":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindString:
+				str := v.String()
+				s.RosterURL = &str
+			default:
+				return configJSONError(path+".roster-url", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+			}
+		case "api-url":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindString:
+				str := v.String()
+				s.APIURL = &str
+			default:
+				return configJSONError(path+".api-url", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+			}
+		case "poll-seconds":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".poll-seconds", v, err)
+				}
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".poll-seconds", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.PollSeconds = &num
+			default:
+				return configJSONError(path+".poll-seconds", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		case "min-sweep-seconds":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".min-sweep-seconds", v, err)
+				}
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".min-sweep-seconds", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.MinSweepSecs = &num
+			default:
+				return configJSONError(path+".min-sweep-seconds", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		case "roster-seconds":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				raw, err := v.Int()
+				if err != nil {
+					return configJSONError(path+".roster-seconds", v, err)
+				}
+				if raw < math.MinInt || raw > math.MaxInt {
+					return configJSONError(path+".roster-seconds", v, fmt.Errorf("%d overflows int", raw))
+				}
+				num := int(raw)
+				s.RosterSeconds = &num
+			default:
+				return configJSONError(path+".roster-seconds", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		case "requests-per-second":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindNumber:
+				num, err := v.Float()
+				if err != nil {
+					return configJSONError(path+".requests-per-second", v, err)
+				}
+				s.RequestsPerSec = &num
+			default:
+				return configJSONError(path+".requests-per-second", v, fmt.Errorf("expected a number, got %v", v.Kind()))
+			}
+		default:
+			if reject, _ := json.GetOption(dec.Options(), json.RejectUnknownMembers); reject {
+				return &configulator.UnknownKeyError{Path: path + "." + configQuoteKey(key)}
+			}
+			if err := dec.SkipValue(); err != nil {
+				return err
+			}
+		}
+	}
+}
+
 // configJSONError returns a ParseError for the JSON token v at path.
 func configJSONError(path string, v jsontext.Token, err error) error {
 	return &configulator.ParseError{
@@ -311,6 +1017,19 @@ func (c Config) PrintConfig() string {
 	fmt.Fprintf(&b, "log-level = %v\n", c.LogLevel)
 	fmt.Fprintf(&b, "http.bind = %v\n", c.HTTP.Bind)
 	fmt.Fprintf(&b, "http.port = %v\n", c.HTTP.Port)
+	fmt.Fprintf(&b, "database = %v\n", c.Database)
+	fmt.Fprintf(&b, "event.team = %v\n", c.Event.Team)
+	fmt.Fprintf(&b, "event.start = %v\n", c.Event.Start)
+	fmt.Fprintf(&b, "event.end = %v\n", c.Event.End)
+	fmt.Fprintf(&b, "event.min-days = %v\n", c.Event.MinDays)
+	fmt.Fprintf(&b, "event.min-points = %v\n", c.Event.MinPoints)
+	fmt.Fprintf(&b, "event.min-wus = %v\n", c.Event.MinWUs)
+	fmt.Fprintf(&b, "collect.roster-url = %v\n", c.Collect.RosterURL)
+	fmt.Fprintf(&b, "collect.api-url = %v\n", c.Collect.APIURL)
+	fmt.Fprintf(&b, "collect.poll-seconds = %v\n", c.Collect.PollSeconds)
+	fmt.Fprintf(&b, "collect.min-sweep-seconds = %v\n", c.Collect.MinSweepSecs)
+	fmt.Fprintf(&b, "collect.roster-seconds = %v\n", c.Collect.RosterSeconds)
+	fmt.Fprintf(&b, "collect.requests-per-second = %v\n", c.Collect.RequestsPerSec)
 	return b.String()
 }
 

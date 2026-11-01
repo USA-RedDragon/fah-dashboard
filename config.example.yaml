@@ -7,3 +7,33 @@ http:
   bind: "[::]"
   # Port to listen on
   port: 8080
+# Path to the SQLite database
+database: "fah-dashboard.db"
+# Competition settings
+event:
+  # Folding@home team ID
+  team: 223518
+  # Event start time in RFC 3339 format
+  start: "2026-11-01T00:00:00Z"
+  # Event end time in RFC 3339 format
+  end: "2026-12-07T00:00:00Z"
+  # Active days needed for prizes and badges
+  min-days: 30
+  # Points needed for prizes and badges
+  min-points: 1000000
+  # Work units needed for prizes and badges
+  min-wus: 50
+# Stats collection settings
+collect:
+  # CSV export URL of the sign-up sheet
+  roster-url: "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474"
+  # Root URL of the Folding@home stats API
+  api-url: "https://api.foldingathome.org"
+  # Seconds between checks for a new stats batch
+  poll-seconds: 60
+  # Minimum seconds between reads of every donor
+  min-sweep-seconds: 300
+  # Seconds between reads of the sign-up sheet
+  roster-seconds: 3600
+  # Maximum requests each second to the stats API
+  requests-per-second: 1
