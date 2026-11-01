@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Folding Month IX</title>
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>LTT <span>Folding Month IX</span></h1>
+    <div class="status" id="status"></div>
+  </header>
+  <div id="error" class="loading" hidden></div>
+  <div class="tiles" id="tiles"></div>
+  <div class="split">
+    <section class="card">
+      <div class="head">
+        <h2>Participants</h2>
+        <input type="search" id="search" placeholder="Find a folder" aria-label="Find a folder">
+      </div>
+      <div class="scroll"><table id="board"></table></div>
+      <p class="note" id="unresolved" hidden></p>
+      <p class="note">Points earned for team 223518 since Nov 1 00:00 UTC. A ~ marks a folder below the monthly top 1000: their total starts from when tracking began, so it can be low by up to the amount shown on their page.</p>
+    </section>
+    <section class="card">
+      <h2>Team race this event</h2>
+      <div class="bars" id="teams"></div>
+    </section>
+  </div>
+</div>
+<script src="/app.js"></script>
+<script>initOverview();</script>
+</body>
+</html>
