@@ -52,7 +52,7 @@ async function load(url, render) {
 function initOverview() {
   let data, query = "", key = "rank", desc = false;
   const columns = [
-    ["rank", "#"], ["name", "Folder"], ["points", "Points"], ["points24h", "24 h"],
+    ["rank", "#"], ["name", "Folder"], ["points", "Points"], ["points24h", "Recent"],
     ["wus", "WUs"], ["rankChange24h", "Move"], ["final", "Forecast"],
   ];
   const value = (s, k) => (k === "final" ? s.forecast.final : s[k]);
@@ -65,7 +65,8 @@ function initOverview() {
       const c = typeof x === "string" ? x.localeCompare(y) : x - y;
       return desc ? -c : c;
     });
-    const head = columns.map(([k, label]) => `<th scope="col" aria-sort="${k === key ? (desc ? "descending" : "ascending") : "none"}"><button data-k="${k}">${label}</button></th>`).join("");
+    const recent = data.partial24h ? `Since ${new Date(data.tracking).toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" })}` : "24 h";
+    const head = columns.map(([k, name]) => [k, k === "points24h" ? recent : name]).map(([k, label]) => `<th scope="col" aria-sort="${k === key ? (desc ? "descending" : "ascending") : "none"}"><button data-k="${k}">${label}</button></th>`).join("");
     const body = rows.map((s) => `<tr>
       <td>${s.rank}</td>
       <td><a href="/donor/${encodeURIComponent(s.name)}">${esc(s.name)}</a></td>

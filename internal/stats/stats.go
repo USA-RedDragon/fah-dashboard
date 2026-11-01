@@ -108,6 +108,7 @@ type Overview struct {
 	MinWUs     int64          `json:"minWus"`
 	LastSample time.Time      `json:"lastSample"`
 	Partial24h bool           `json:"partial24h"`
+	Tracking   time.Time      `json:"tracking"`
 	Unresolved []string       `json:"unresolved"`
 	Start      time.Time      `json:"start"`
 	End        time.Time      `json:"end"`
@@ -200,6 +201,7 @@ func Build(rules Rules, donors []store.Donor, samples []store.Sample, teams []st
 			Now: now, Team: rules.Team, MinDays: rules.MinDays, MinPoints: rules.MinPoints, MinWUs: rules.MinWUs,
 			LastSample: last, Start: rules.Start, End: rules.End,
 			Partial24h: last.Sub(first) < day,
+			Tracking:   first,
 			Donors:     len(standings), Standings: standings, Teams: teamStandings(teams, last),
 		},
 		details: make(map[int64]DonorDetail, len(standings)),
