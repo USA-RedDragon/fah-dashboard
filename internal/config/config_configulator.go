@@ -39,6 +39,7 @@ type collectShadow struct {
 	PollSeconds    *int     `json:"poll-seconds"        toml:"poll-seconds"        yaml:"poll-seconds"`
 	MinSweepSecs   *int     `json:"min-sweep-seconds"   toml:"min-sweep-seconds"   yaml:"min-sweep-seconds"`
 	RosterSeconds  *int     `json:"roster-seconds"      toml:"roster-seconds"      yaml:"roster-seconds"`
+	Aliases        *string  `json:"aliases"             toml:"aliases"             yaml:"aliases"`
 	RequestsPerSec *float64 `json:"requests-per-second" toml:"requests-per-second" yaml:"requests-per-second"`
 }
 
@@ -171,6 +172,10 @@ func (s *configShadow) applyTo(cfg *Config, _ string, set configulator.SetOrigin
 		if s.Collect.RosterSeconds != nil {
 			cfg.Collect.RosterSeconds = *s.Collect.RosterSeconds
 			set("collect.roster-seconds", configulator.LayerFile, file)
+		}
+		if s.Collect.Aliases != nil {
+			cfg.Collect.Aliases = *s.Collect.Aliases
+			set("collect.aliases", configulator.LayerFile, file)
 		}
 		if s.Collect.RequestsPerSec != nil {
 			cfg.Collect.RequestsPerSec = *s.Collect.RequestsPerSec
@@ -313,6 +318,10 @@ func configApplyEnv(cfg *Config, ec configulator.EnvContext, set configulator.Se
 		cfg.Collect.RosterSeconds = int(p)
 		set("collect.roster-seconds", configulator.LayerEnv, n)
 	}
+	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "aliases"); ok {
+		cfg.Collect.Aliases = v
+		set("collect.aliases", configulator.LayerEnv, n)
+	}
 	if n, v, ok := impl.LookupEnv(ec.Getenv, ec.Opts.Prefix, ec.Opts.Separator, "collect", "requests-per-second"); ok {
 		p, err := strconv.ParseFloat(v, 64)
 		if err != nil {
@@ -354,6 +363,7 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 		"collect" + o.Separator + "poll-seconds",
 		"collect" + o.Separator + "min-sweep-seconds",
 		"collect" + o.Separator + "roster-seconds",
+		"collect" + o.Separator + "aliases",
 		"collect" + o.Separator + "requests-per-second",
 	}
 	for i, name := range names {
@@ -385,7 +395,8 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.Var(impl.NewInt(60), names[12], "Seconds between checks for a new stats batch")
 	fs.Var(impl.NewInt(300), names[13], "Minimum seconds between reads of every donor")
 	fs.Var(impl.NewInt(3600), names[14], "Seconds between reads of the sign-up sheet")
-	fs.Float64(names[15], 1.0, "Maximum requests each second to the stats API")
+	fs.String(names[15], "", "Comma-separated sign-up=donor pairs for names that differ on Folding@home")
+	fs.Float64(names[16], 1.0, "Maximum requests each second to the stats API")
 	return nil
 }
 
@@ -569,6 +580,18 @@ func configApplyPFlags(cfg *Config, fs *pflag.FlagSet, o *cpflag.Options, _ stri
 		}
 		cfg.Collect.RosterSeconds = v
 		set("collect.roster-seconds", configulator.LayerCLI, "--"+n)
+	}
+	if n := "collect" + o.Separator + "aliases"; fs.Changed(n) {
+		v, err := fs.GetString(n)
+		if err != nil {
+			return &configulator.ParseError{
+				Err:    err,
+				Path:   "collect.aliases",
+				Source: "--" + n,
+			}
+		}
+		cfg.Collect.Aliases = v
+		set("collect.aliases", configulator.LayerCLI, "--"+n)
 	}
 	if n := "collect" + o.Separator + "requests-per-second"; fs.Changed(n) {
 		v, err := fs.GetFloat64(n)
@@ -973,6 +996,19 @@ func (s *collectShadow) decodeJSON(dec *jsontext.Decoder, path string) error {
 			default:
 				return configJSONError(path+".roster-seconds", v, fmt.Errorf("expected a number, got %v", v.Kind()))
 			}
+		case "aliases":
+			v, err := dec.ReadToken()
+			if err != nil {
+				return err
+			}
+			switch v.Kind() {
+			case jsontext.KindNull:
+			case jsontext.KindString:
+				str := v.String()
+				s.Aliases = &str
+			default:
+				return configJSONError(path+".aliases", v, fmt.Errorf("expected a string, got %v", v.Kind()))
+			}
 		case "requests-per-second":
 			v, err := dec.ReadToken()
 			if err != nil {
@@ -1029,6 +1065,7 @@ func (c Config) PrintConfig() string {
 	fmt.Fprintf(&b, "collect.poll-seconds = %v\n", c.Collect.PollSeconds)
 	fmt.Fprintf(&b, "collect.min-sweep-seconds = %v\n", c.Collect.MinSweepSecs)
 	fmt.Fprintf(&b, "collect.roster-seconds = %v\n", c.Collect.RosterSeconds)
+	fmt.Fprintf(&b, "collect.aliases = %v\n", c.Collect.Aliases)
 	fmt.Fprintf(&b, "collect.requests-per-second = %v\n", c.Collect.RequestsPerSec)
 	return b.String()
 }

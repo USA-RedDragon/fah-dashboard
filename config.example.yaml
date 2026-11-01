@@ -35,5 +35,7 @@ collect:
   min-sweep-seconds: 300
   # Seconds between reads of the sign-up sheet
   roster-seconds: 3600
+  # Comma-separated sign-up=donor pairs for names that differ on Folding@home
+  # aliases: ""
   # Maximum requests each second to the stats API
   requests-per-second: 1

@@ -50,6 +50,8 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"name":"big","id":1,"teams":[{"team":%d,"score":%d,"wus":600}]}`, team, f.bigScore.Load())
 	case r.URL.Path == fmt.Sprintf("/team/%d/members", team):
 		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7],["ExactName",6,2,800,8]]`)
+	case r.URL.Path == "/user/lifer":
+		fmt.Fprintf(w, `{"name":"lifer","id":7,"teams":[{"team":%d,"score":90000,"wus":90}]}`, team)
 	case r.URL.Path == "/user/Exact_Name":
 		fmt.Fprintf(w, `{"name":"Exact_Name","id":5,"teams":[{"team":%d,"score":1,"wus":1}]}`, team)
 	case r.URL.Path == "/user/space_name":
@@ -91,8 +93,9 @@ func setup(t *testing.T) (*fakeAPI, *collector.Collector, *atomic.Pointer[time.T
 		},
 		MinSweep:      time.Minute,
 		RosterRefresh: time.Hour,
+		Aliases:       collector.ParseAliases("Old Name = lifer , broken"),
 		Roster: func(context.Context) ([]string, error) {
-			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name"}, nil
+			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name", "Old Name"}, nil
 		},
 		Now: func() time.Time { return *now.Load() },
 	})
@@ -234,6 +237,9 @@ func TestForumNameMatchesDonorSpelling(t *testing.T) {
 	if _, ok := c.View().Detail("Exact_Name"); !ok {
 		t.Error("exact name lost to a similar donor")
 	}
+	if lifer, ok := c.View().Detail("lifer"); !ok || lifer.Standing.Points != 0 {
+		t.Errorf("alias = %+v", lifer.Standing)
+	}
 	if got := c.View().Overview.Unresolved; len(got) != 2 || got[0] != "late" || got[1] != "missing" {
 		t.Errorf("unresolved = %v", got)
 	}
@@ -291,5 +297,20 @@ func TestNoSweepAfterLateCreditWindow(t *testing.T) {
 	}
 	if api.userReads.Load() != 0 {
 		t.Error("swept after the event ended")
+	}
+}
+
+func TestAliasAddedLaterKeepsLifetimeOutOfPoints(t *testing.T) {
+	t.Parallel()
+	_, c, _ := setup(t)
+	ctx := context.Background()
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := c.Load(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if lifer, ok := c.View().Detail("lifer"); !ok || lifer.Standing.Points != 0 {
+		t.Errorf("alias = %+v", lifer.Standing)
 	}
 }

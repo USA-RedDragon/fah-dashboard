@@ -45,6 +45,7 @@ type Collect struct {
 	PollSeconds    int     `name:"poll-seconds" description:"Seconds between checks for a new stats batch" default:"60"`
 	MinSweepSecs   int     `name:"min-sweep-seconds" description:"Minimum seconds between reads of every donor" default:"300"`
 	RosterSeconds  int     `name:"roster-seconds" description:"Seconds between reads of the sign-up sheet" default:"3600"`
+	Aliases        string  `name:"aliases" description:"Comma-separated sign-up=donor pairs for names that differ on Folding@home"`
 	RequestsPerSec float64 `name:"requests-per-second" description:"Maximum requests each second to the stats API" default:"1"`
 }
 

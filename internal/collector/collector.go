@@ -41,6 +41,7 @@ type Options struct {
 	MinSweep      time.Duration
 	RosterRefresh time.Duration
 	Roster        RosterFunc
+	Aliases       map[string]string
 	Now           func() time.Time
 }
 
@@ -218,7 +219,7 @@ func (c *Collector) sweep(ctx context.Context, now time.Time) error {
 		score, wus := u.TeamScore(c.opts.Rules.Team)
 		cr := before.forUser(u.ID)
 		cr.bound += max(after.forUser(u.ID).points-cr.points, 0)
-		newName := c.everMissing[normalize(r.wanted)]
+		newName := c.everMissing[normalize(r.wanted)] && normalize(r.wanted) == normalize(u.Name)
 		if err := c.updateBaseline(ctx, u, score, wus, cr, newName, now); err != nil {
 			return err
 		}
@@ -301,7 +302,9 @@ func (c *Collector) spellings(ctx context.Context, credits eventCredit) (map[str
 	}
 	out := make(map[string]string, len(c.names))
 	for _, name := range c.names {
-		if donor, ok := known[normalize(name)]; ok {
+		if donor, ok := c.opts.Aliases[name]; ok {
+			out[name] = donor
+		} else if donor, ok := known[normalize(name)]; ok {
 			out[name] = donor
 		} else {
 			out[name] = strings.ReplaceAll(name, " ", "_")
@@ -455,6 +458,17 @@ func (c *Collector) eventMonths(now time.Time) []time.Time {
 	for !month.After(now) && month.Before(c.opts.Rules.End) {
 		out = append(out, month)
 		month = month.AddDate(0, 1, 0)
+	}
+	return out
+}
+
+// ParseAliases reads comma-separated sign-up=donor pairs.
+func ParseAliases(raw string) map[string]string {
+	out := map[string]string{}
+	for pair := range strings.SplitSeq(raw, ",") {
+		if name, donor, ok := strings.Cut(pair, "="); ok {
+			out[strings.TrimSpace(name)] = strings.TrimSpace(donor)
+		}
 	}
 	return out
 }
