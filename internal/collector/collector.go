@@ -275,7 +275,8 @@ func (c *Collector) sweep(ctx context.Context, now time.Time) error {
 		score, wus := u.TeamScore(c.opts.Rules.Team)
 		cr := before.forUser(u.ID)
 		cr.bound += max(after.forUser(u.ID).points-cr.points, 0)
-		newName := c.everMissing[normalize(r.wanted)] && normalize(r.wanted) == normalize(u.Name)
+		_, aliased := c.opts.Aliases[r.wanted]
+		newName := c.everMissing[normalize(r.wanted)] && !aliased && score <= cr.bound
 		if err := c.updateBaseline(ctx, u, score, wus, cr, newName, now); err != nil {
 			return err
 		}

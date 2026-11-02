@@ -50,6 +50,8 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		fmt.Fprintf(w, `{"name":"big","id":1,"teams":[{"team":%d,"score":%d,"wus":600}]}`, team, f.bigScore.Load())
 	case r.URL.Path == fmt.Sprintf("/team/%d/members", team):
 		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7],["ExactName",6,2,800,8]]`)
+	case r.URL.Path == "/user/Oldie" && f.newcomer.Load():
+		fmt.Fprintf(w, `{"name":"Oldie","id":8,"teams":[{"team":%d,"score":90000,"wus":90}]}`, team)
 	case r.URL.Path == "/user/lifer":
 		fmt.Fprintf(w, `{"name":"lifer","id":7,"teams":[{"team":%d,"score":90000,"wus":90}]}`, team)
 	case r.URL.Path == "/user/Exact_Name":
@@ -95,7 +97,7 @@ func setup(t *testing.T) (*fakeAPI, *collector.Collector, *atomic.Pointer[time.T
 		RosterRefresh: time.Hour,
 		Aliases:       collector.ParseAliases("Old Name = lifer , broken"),
 		Roster: func(context.Context) ([]string, error) {
-			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name", "Old Name"}, nil
+			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name", "Old Name", "Oldie"}, nil
 		},
 		Now: func() time.Time { return *now.Load() },
 	})
@@ -240,7 +242,7 @@ func TestForumNameMatchesDonorSpelling(t *testing.T) {
 	if lifer, ok := c.View().Detail("lifer"); !ok || lifer.Standing.Points != 0 {
 		t.Errorf("alias = %+v", lifer.Standing)
 	}
-	if got := c.View().Overview.Unresolved; len(got) != 2 || got[0] != "late" || got[1] != "missing" {
+	if got := c.View().Overview.Unresolved; len(got) != 3 || got[0] != "Oldie" || got[1] != "late" || got[2] != "missing" {
 		t.Errorf("unresolved = %v", got)
 	}
 }
@@ -334,5 +336,23 @@ func TestStatusEstimatesNextBatchFromTheLastGap(t *testing.T) {
 	st := c.Status()
 	if !st.NextBatch.Equal(st.LastBatch.Add(8 * time.Minute)) {
 		t.Errorf("status = %+v", st)
+	}
+}
+
+func TestReappearingNameWithLargeScoreIsNotAllEventPoints(t *testing.T) {
+	t.Parallel()
+	api, c, now := setup(t)
+	ctx := context.Background()
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	api.newcomer.Store(true)
+	api.teamScore.Store(2)
+	advance(now, time.Hour)
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if oldie, ok := c.View().Detail("Oldie"); !ok || oldie.Standing.Points != 0 {
+		t.Errorf("oldie = %+v", oldie.Standing)
 	}
 }
