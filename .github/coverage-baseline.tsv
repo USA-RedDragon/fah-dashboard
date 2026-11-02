@@ -1,5 +1,5 @@
 cmd/root.go	56	0
-internal/collector/collector.go	244	207
+internal/collector/collector.go	245	208
 internal/config/config.go	15	11
 internal/fah/client.go	93	78
 internal/roster/roster.go	32	20
