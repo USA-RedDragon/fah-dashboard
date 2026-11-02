@@ -47,7 +47,7 @@ function drawStatus(st) {
   const updated = st && known(st.updatedAt) ? st.updatedAt : lastSample;
   const parts = [];
   if (known(updated)) parts.push(`Updated ${ago(updated)}`);
-  if (st && st.sweeping) parts.push(`checking smaller folders: ${st.read} of ${st.total}`);
+  if (st && st.sweeping) parts.push(`updating folders: ${st.read} of ${st.total}`);
   else if (st && known(st.nextBatch)) parts.push(until(st.nextBatch));
   $("status").textContent = parts.join(" · ");
 }
