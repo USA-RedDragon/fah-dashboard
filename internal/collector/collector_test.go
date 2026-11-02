@@ -314,3 +314,25 @@ func TestAliasAddedLaterKeepsLifetimeOutOfPoints(t *testing.T) {
 		t.Errorf("alias = %+v", lifer.Standing)
 	}
 }
+
+func TestStatusEstimatesNextBatchFromTheLastGap(t *testing.T) {
+	t.Parallel()
+	api, c, now := setup(t)
+	ctx := context.Background()
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	first := c.Status()
+	if first.Sweeping || !first.NextBatch.Equal(first.LastBatch.Add(10*time.Minute)) {
+		t.Errorf("status = %+v", first)
+	}
+	api.teamScore.Store(2)
+	advance(now, 8*time.Minute)
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	st := c.Status()
+	if !st.NextBatch.Equal(st.LastBatch.Add(8 * time.Minute)) {
+		t.Errorf("status = %+v", st)
+	}
+}

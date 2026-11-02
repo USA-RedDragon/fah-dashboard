@@ -28,11 +28,23 @@ const (
 	teamsKept     = 100
 	sweepWorkers  = 2
 	lateCredit    = 15 * time.Minute
+	batchGap      = 10 * time.Minute
+	minBatchGap   = 5 * time.Minute
+	maxBatchGap   = 20 * time.Minute
 	monthKeyScale = 100
 )
 
 // RosterFunc returns the names to track.
 type RosterFunc func(ctx context.Context) ([]string, error)
+
+// Status is what the collector is doing right now.
+type Status struct {
+	Sweeping  bool      `json:"sweeping"`
+	Read      int64     `json:"read"`
+	Total     int       `json:"total"`
+	LastBatch time.Time `json:"lastBatch"`
+	NextBatch time.Time `json:"nextBatch"`
+}
 
 // Options configures a Collector.
 type Options struct {
@@ -58,6 +70,12 @@ type Collector struct {
 	everMissing map[string]bool
 	unresolved  []string
 
+	statusMu  sync.Mutex
+	status    Status
+	read      atomic.Int64
+	seenScore int64
+	gap       time.Duration
+
 	lastTeamScore int64
 	lastSweep     time.Time
 	lastRoster    time.Time
@@ -76,12 +94,46 @@ func New(api *fah.Client, st *store.Store, opts Options) *Collector {
 		last:   map[int64]store.Sample{},
 
 		everMissing: map[string]bool{},
+		gap:         batchGap,
 	}
 }
 
 // View returns the latest published view. It is nil before Load.
 func (c *Collector) View() *stats.View {
 	return c.view.Load()
+}
+
+// Status returns the collector's current activity.
+func (c *Collector) Status() Status {
+	c.statusMu.Lock()
+	defer c.statusMu.Unlock()
+	st := c.status
+	st.Read = c.read.Load()
+	return st
+}
+
+func (c *Collector) noteBatch(score int64, now time.Time) {
+	if score == c.seenScore {
+		return
+	}
+	c.statusMu.Lock()
+	defer c.statusMu.Unlock()
+	if !c.status.LastBatch.IsZero() {
+		if gap := now.Sub(c.status.LastBatch); gap >= minBatchGap && gap <= maxBatchGap {
+			c.gap = gap
+		}
+	}
+	c.seenScore = score
+	c.status.LastBatch = now
+	c.status.NextBatch = now.Add(c.gap)
+}
+
+func (c *Collector) setSweeping(sweeping bool, total int) {
+	c.statusMu.Lock()
+	defer c.statusMu.Unlock()
+	c.status.Sweeping = sweeping
+	c.status.Total = total
+	c.read.Store(0)
 }
 
 // Load restores state from the database and publishes a first view.
@@ -137,6 +189,7 @@ func (c *Collector) Tick(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("poll team: %w", err)
 	}
+	c.noteBatch(team.Score, now)
 	if team.Score == c.lastTeamScore || now.Sub(c.lastSweep) < c.opts.MinSweep {
 		return nil
 	}
@@ -192,6 +245,9 @@ type readResult struct {
 }
 
 func (c *Collector) sweep(ctx context.Context, now time.Time) error {
+	c.setSweeping(true, len(c.names))
+	defer c.setSweeping(false, 0)
+
 	before, err := c.eventCredits(ctx, now)
 	if err != nil {
 		return err
@@ -342,6 +398,7 @@ func (c *Collector) readUsers(ctx context.Context, names map[string]string) ([]r
 	for wanted, donor := range names {
 		group.Go(func() error {
 			u, err := c.readUser(ctx, wanted, donor)
+			c.read.Add(1)
 			mu.Lock()
 			defer mu.Unlock()
 			switch {

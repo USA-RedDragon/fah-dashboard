@@ -14,6 +14,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/USA-RedDragon/fah-dashboard/internal/collector"
 	"github.com/USA-RedDragon/fah-dashboard/internal/config"
 	"github.com/USA-RedDragon/fah-dashboard/internal/stats"
 )
@@ -26,12 +27,15 @@ const defTimeout = 5 * time.Second
 // ViewFunc returns the latest stats. It returns nil before the first load.
 type ViewFunc func() *stats.View
 
+// StatusFunc returns the collector's current activity.
+type StatusFunc func() collector.Status
+
 type Server struct {
 	server *http.Server
 	config *config.Config
 }
 
-func NewServer(cfg *config.Config, view ViewFunc) (*Server, error) {
+func NewServer(cfg *config.Config, view ViewFunc, status StatusFunc) (*Server, error) {
 	web, err := fs.Sub(webFS, "web")
 	if err != nil {
 		return nil, fmt.Errorf("open web assets: %w", err)
@@ -41,16 +45,19 @@ func NewServer(cfg *config.Config, view ViewFunc) (*Server, error) {
 			Addr:              net.JoinHostPort(strings.Trim(cfg.HTTP.Bind, "[]"), strconv.Itoa(cfg.HTTP.Port)),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      defTimeout,
-			Handler:           newMux(web, view),
+			Handler:           newMux(web, view, status),
 		},
 		config: cfg,
 	}, nil
 }
 
-func newMux(web fs.FS, view ViewFunc) *http.ServeMux {
+func newMux(web fs.FS, view ViewFunc, status StatusFunc) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	})
+	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, _ *http.Request) {
+		writeJSON(w, status())
 	})
 	mux.HandleFunc("GET /api/overview", func(w http.ResponseWriter, _ *http.Request) {
 		v := view()

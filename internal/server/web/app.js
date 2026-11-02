@@ -1,6 +1,9 @@
 "use strict";
 
 const REFRESH_MS = 30000;
+const STATUS_MS = 10000;
+let refreshNow = () => {};
+let lastSample = null;
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s).replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
 const full = (n) => Math.round(n).toLocaleString("en-US");
@@ -33,6 +36,36 @@ function tile(label, value, sub) {
   return `<div class="tile"><small>${esc(label)}</small><strong>${esc(value)}</strong><em>${esc(sub || "")}</em></div>`;
 }
 
+function until(iso) {
+  const min = Math.round((new Date(iso) - Date.now()) / 60000);
+  if (min < 1) return "next batch due now";
+  return `next in about ${min} min`;
+}
+
+function drawStatus(st) {
+  const parts = [];
+  if (lastSample) parts.push(`Last stats batch ${ago(lastSample)}`);
+  if (st && st.sweeping) parts.push(`Updating from F@H: ${st.read} of ${st.total}`);
+  else if (st && new Date(st.nextBatch).getUTCFullYear() > 2000) parts.push(until(st.nextBatch));
+  $("status").textContent = parts.join(" · ");
+}
+
+async function watchStatus() {
+  let was = false;
+  async function tick() {
+    try {
+      const st = await (await fetch("/api/status")).json();
+      drawStatus(st);
+      if (was && !st.sweeping) refreshNow();
+      was = st.sweeping;
+    } catch (e) {
+      drawStatus(null);
+    }
+  }
+  await tick();
+  setInterval(tick, STATUS_MS);
+}
+
 async function load(url, render) {
   async function tick() {
     try {
@@ -45,8 +78,10 @@ async function load(url, render) {
       $("error").hidden = false;
     }
   }
+  refreshNow = tick;
   await tick();
   setInterval(tick, REFRESH_MS);
+  watchStatus();
 }
 
 function initOverview() {
@@ -91,7 +126,8 @@ function initOverview() {
     data = o;
     const left = Math.max(0, new Date(o.end) - Date.now());
     const days = Math.floor(left / 864e5), hours = Math.floor(left / 36e5) % 24;
-    $("status").innerHTML = `Last stats batch <b>${ago(o.lastSample)}</b>`;
+    lastSample = o.lastSample;
+    drawStatus(null);
     const ltt = o.teams.find((t) => t.team === o.team);
     $("tiles").innerHTML =
       tile("Team LTT this event", ltt ? short(ltt.credit) : "n/a", ltt ? `rank ${ltt.rank} of tracked teams` : "") +
@@ -280,7 +316,8 @@ function initDonor() {
   load(`/api/donors/${encodeURIComponent(name)}`, async (d) => {
     const window_ = await (await fetch("/api/overview")).json();
     const s = d.standing, fc = s.forecast;
-    $("status").textContent = `Last stats batch ${ago(window_.lastSample)}`;
+    lastSample = window_.lastSample;
+    drawStatus(null);
     $("name").textContent = s.name;
     $("tiles").innerHTML =
       tile("Rank", `#${s.rank}`, `of ${d.field} participants`) +
