@@ -54,6 +54,10 @@ h2 { margin: 0 0 12px; font-size: 16px; }
 .card { padding: 16px; margin-bottom: 16px; min-width: 0; }
 .split { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; align-items: start; }
 .split > .card { margin-bottom: 0; }
+.stack { display: grid; gap: 16px; min-width: 0; }
+.stack > .card { margin-bottom: 0; }
+table.plain th:nth-child(2), table.plain td:nth-child(2) { text-align: right; }
+table.plain th:first-child, table.plain td:first-child { text-align: left; width: auto; }
 .pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; margin-bottom: 16px; }
 .pair > .card { margin-bottom: 0; }
 @media (max-width: 860px) { .split { grid-template-columns: minmax(0, 1fr); } }

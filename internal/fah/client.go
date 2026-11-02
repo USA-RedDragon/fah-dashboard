@@ -47,6 +47,8 @@ type Client struct {
 	http      *http.Client
 	limiter   *rate.Limiter
 	backoff   time.Duration
+
+	assignBase string
 }
 
 // Option changes how a Client is built.
@@ -70,6 +72,11 @@ func WithRateLimit(perSecond float64) Option {
 // WithBackoff sets the wait after the first 429 response. Later waits double.
 func WithBackoff(d time.Duration) Option {
 	return func(c *Client) { c.backoff = d }
+}
+
+// WithAssignBase sends assignment server requests to one URL.
+func WithAssignBase(url string) Option {
+	return func(c *Client) { c.assignBase = strings.TrimRight(url, "/") }
 }
 
 // WithUserAgent sets the User-Agent header.
@@ -259,9 +266,13 @@ func decodeMembers(rows [][]json.RawMessage) ([]Member, error) {
 // get retries 429 responses. The API sends no Retry-After header, and its
 // limit clears within a minute.
 func (c *Client) get(ctx context.Context, path string, query url.Values, out any) error {
+	return c.getFrom(ctx, c.baseURL, path, query, out)
+}
+
+func (c *Client) getFrom(ctx context.Context, base, path string, query url.Values, out any) error {
 	wait := c.backoff
 	for attempt := 1; ; attempt++ {
-		err := c.getOnce(ctx, path, query, out)
+		err := c.getOnce(ctx, base, path, query, out)
 		if !errors.Is(err, ErrRateLimited) || attempt == maxAttempts {
 			return err
 		}
@@ -274,12 +285,12 @@ func (c *Client) get(ctx context.Context, path string, query url.Values, out any
 	}
 }
 
-func (c *Client) getOnce(ctx context.Context, path string, query url.Values, out any) error {
+func (c *Client) getOnce(ctx context.Context, base, path string, query url.Values, out any) error {
 	if err := c.limiter.Wait(ctx); err != nil {
 		return fmt.Errorf("wait for rate limit: %w", err)
 	}
 
-	target := c.baseURL + path
+	target := base + path
 	if len(query) > 0 {
 		target += "?" + query.Encode()
 	}

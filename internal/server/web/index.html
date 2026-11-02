@@ -24,10 +24,17 @@
       <p class="note" id="unresolved" hidden></p>
       <p class="note">Points earned for team 223518 since Nov 1 00:00 UTC, for people who signed up. The team total also counts members who did not sign up. Move compares with 24 hours ago, or with the first tracked rankings until tracking has a full day. A ~ marks a folder below the monthly top 1000: their total starts from when tracking began, so it can be low by up to the amount shown on their page.</p>
     </section>
-    <section class="card">
-      <h2>Team race this event</h2>
-      <div class="bars" id="teams"></div>
-    </section>
+    <div class="stack">
+      <section class="card">
+        <h2>Team race this event</h2>
+        <div class="bars" id="teams"></div>
+      </section>
+      <section class="card">
+        <h2>F@H network</h2>
+        <div class="scroll"><table id="network" class="plain"></table></div>
+        <p class="note" id="networkNote"></p>
+      </section>
+    </div>
   </div>
 </div>
 <script src="/app.js"></script>

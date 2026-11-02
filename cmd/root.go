@@ -87,7 +87,7 @@ func runRoot(cmd *cobra.Command, _ []string) error {
 		coll.Run(ctx)
 	}()
 
-	server, err := server.NewServer(cfg, coll.View, coll.Status)
+	server, err := server.NewServer(cfg, coll.View, coll.Status, coll.Network)
 	if err != nil {
 		return fmt.Errorf("failed to create server: %w", err)
 	}

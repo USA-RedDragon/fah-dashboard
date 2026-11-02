@@ -29,8 +29,10 @@ const (
 	sweepWorkers  = 2
 	lateCredit    = 15 * time.Minute
 	batchGap      = 10 * time.Minute
-	minBatchGap   = 5 * time.Minute
-	maxBatchGap   = 20 * time.Minute
+	minBatchGap   = 8 * time.Minute
+	maxBatchGap   = 12 * time.Minute
+	missingRetry  = time.Hour
+	networkPoll   = 5 * time.Minute
 	monthKeyScale = 100
 )
 
@@ -42,6 +44,7 @@ type Status struct {
 	Sweeping  bool      `json:"sweeping"`
 	Read      int64     `json:"read"`
 	Total     int       `json:"total"`
+	UpdatedAt time.Time `json:"updatedAt"`
 	LastBatch time.Time `json:"lastBatch"`
 	NextBatch time.Time `json:"nextBatch"`
 }
@@ -70,6 +73,11 @@ type Collector struct {
 	everMissing map[string]bool
 	unresolved  []string
 
+	resolved    map[string]string
+	lastMissing time.Time
+	lastNetwork time.Time
+	network     atomic.Pointer[fah.Network]
+
 	statusMu  sync.Mutex
 	status    Status
 	read      atomic.Int64
@@ -94,6 +102,7 @@ func New(api *fah.Client, st *store.Store, opts Options) *Collector {
 		last:   map[int64]store.Sample{},
 
 		everMissing: map[string]bool{},
+		resolved:    map[string]string{},
 		gap:         batchGap,
 	}
 }
@@ -134,6 +143,25 @@ func (c *Collector) setSweeping(sweeping bool, total int) {
 	c.status.Sweeping = sweeping
 	c.status.Total = total
 	c.read.Store(0)
+}
+
+// Network returns the latest F@H network snapshot, or nil before the first.
+func (c *Collector) Network() *fah.Network {
+	return c.network.Load()
+}
+
+func (c *Collector) refreshNetwork(ctx context.Context, now time.Time) {
+	if now.Sub(c.lastNetwork) < networkPoll {
+		return
+	}
+	c.lastNetwork = now
+	n, err := c.api.Network(ctx)
+	if err != nil {
+		slog.Warn("read network stats", "error", err)
+		return
+	}
+	n.UpdatedAt = now
+	c.network.Store(&n)
 }
 
 // Load restores state from the database and publishes a first view.
@@ -190,6 +218,7 @@ func (c *Collector) Tick(ctx context.Context) error {
 		return fmt.Errorf("poll team: %w", err)
 	}
 	c.noteBatch(team.Score, now)
+	c.refreshNetwork(ctx, now)
 	if team.Score == c.lastTeamScore || now.Sub(c.lastSweep) < c.opts.MinSweep {
 		return nil
 	}
@@ -211,7 +240,7 @@ func (c *Collector) Tick(ctx context.Context) error {
 	}
 	slog.Info("swept stats batch", "team_score", team.Score, "delta", team.Score-c.lastTeamScore, "donors", len(c.names))
 	c.lastTeamScore, c.lastSweep = team.Score, now
-	return c.publish(ctx)
+	return nil
 }
 
 func (c *Collector) publish(ctx context.Context) error {
@@ -233,6 +262,16 @@ func (c *Collector) publish(ctx context.Context) error {
 	return nil
 }
 
+func (c *Collector) publishUpdate(ctx context.Context) error {
+	if err := c.publish(ctx); err != nil {
+		return err
+	}
+	c.statusMu.Lock()
+	defer c.statusMu.Unlock()
+	c.status.UpdatedAt = c.opts.Now().UTC()
+	return nil
+}
+
 type credit struct {
 	points int64
 	wus    int64
@@ -244,10 +283,10 @@ type readResult struct {
 	wanted string
 }
 
+// sweep updates donors in two passes. The team list and monthly board cover
+// the biggest folders in two requests, so they publish within seconds of a
+// batch. Everyone else takes one request each and publishes when that ends.
 func (c *Collector) sweep(ctx context.Context, now time.Time) error {
-	c.setSweeping(true, len(c.names))
-	defer c.setSweeping(false, 0)
-
 	before, err := c.eventCredits(ctx, now)
 	if err != nil {
 		return err
@@ -255,12 +294,25 @@ func (c *Collector) sweep(ctx context.Context, now time.Time) error {
 	if err := c.recordTeams(ctx, now); err != nil {
 		return err
 	}
-	names, err := c.spellings(ctx, before)
+	members, err := c.api.TeamMembers(ctx, c.opts.Rules.Team)
 	if err != nil {
-		return err
+		return fmt.Errorf("read team members: %w", err)
 	}
 
-	users, missing, err := c.readUsers(ctx, names)
+	fast, slow := c.partition(members, before, now)
+	if len(fast) > 0 {
+		if err := c.record(ctx, fast, before, before, now); err != nil {
+			return err
+		}
+		if err := c.publishUpdate(ctx); err != nil {
+			return err
+		}
+	}
+
+	checkMissing := now.Sub(c.lastMissing) >= missingRetry
+	c.setSweeping(true, len(slow))
+	defer c.setSweeping(false, 0)
+	users, missing, err := c.readUsers(ctx, c.spellings(members, before, slow))
 	if err != nil {
 		return err
 	}
@@ -268,10 +320,78 @@ func (c *Collector) sweep(ctx context.Context, now time.Time) error {
 	if err != nil {
 		return err
 	}
+	if err := c.record(ctx, users, before, after, now); err != nil {
+		return err
+	}
 
+	if checkMissing {
+		c.lastMissing = now
+		c.unresolved = missing
+		if err := c.store.AddMissing(ctx, missing); err != nil {
+			return err
+		}
+		for _, name := range missing {
+			c.everMissing[normalize(name)] = true
+		}
+	}
+	return c.publishUpdate(ctx)
+}
+
+// partition splits the roster into donors the bulk lists answer and names that
+// need their own read. Names that have never resolved are skipped between
+// hourly retries.
+func (c *Collector) partition(members []fah.Member, credits eventCredit, now time.Time) ([]readResult, []string) {
+	byName := make(map[string]fah.Member, len(members))
+	for _, m := range members {
+		byName[m.Name] = m
+	}
+	donors := make(map[string]store.Donor, len(c.donors))
+	for _, d := range c.donors {
+		donors[d.Name] = d
+	}
+	waiting := map[string]bool{}
+	if now.Sub(c.lastMissing) < missingRetry {
+		for _, name := range c.unresolved {
+			waiting[name] = true
+		}
+	}
+
+	var fast []readResult
+	var slow []string
+	for _, name := range c.names {
+		if waiting[name] {
+			continue
+		}
+		donor, ok := c.resolved[name]
+		if !ok {
+			slow = append(slow, name)
+			continue
+		}
+		if m, ok := byName[donor]; ok {
+			fast = append(fast, readResult{user: c.teamUser(m.Name, m.ID, m.Score, m.WUs), wanted: name})
+			continue
+		}
+		if d, ok := donors[donor]; ok && d.BaselineError == 0 {
+			if cr := credits.forUser(d.ID); cr.bound == 0 {
+				user := c.teamUser(d.Name, d.ID, d.BaselineScore+cr.points, d.BaselineWUs+cr.wus)
+				fast = append(fast, readResult{user: user, wanted: name})
+				continue
+			}
+		}
+		slow = append(slow, name)
+	}
+	return fast, slow
+}
+
+func (c *Collector) teamUser(name string, id, score, wus int64) fah.User {
+	return fah.User{Name: name, ID: id, Teams: []fah.UserTeam{{Team: c.opts.Rules.Team, Score: score, WUs: wus}}}
+}
+
+func (c *Collector) record(ctx context.Context, users []readResult, before, after eventCredit, now time.Time) error {
 	samples := make([]store.Sample, 0, len(users))
 	for _, r := range users {
 		u := r.user
+		c.resolved[r.wanted] = u.Name
 		score, wus := u.TeamScore(c.opts.Rules.Team)
 		cr := before.forUser(u.ID)
 		cr.bound += max(after.forUser(u.ID).points-cr.points, 0)
@@ -290,14 +410,6 @@ func (c *Collector) sweep(ctx context.Context, now time.Time) error {
 	}
 	for _, s := range samples {
 		c.last[s.DonorID] = s
-	}
-
-	c.unresolved = missing
-	if err := c.store.AddMissing(ctx, missing); err != nil {
-		return err
-	}
-	for _, name := range missing {
-		c.everMissing[normalize(name)] = true
 	}
 	return nil
 }
@@ -341,11 +453,7 @@ func (c *Collector) updateBaseline(ctx context.Context, u fah.User, score, wus i
 // name fails. F@H turns spaces into underscores and forum names can differ in
 // punctuation, so a name is matched against the team list and monthly board
 // with both reduced to lowercase letters and digits.
-func (c *Collector) spellings(ctx context.Context, credits eventCredit) (map[string]string, error) {
-	members, err := c.api.TeamMembers(ctx, c.opts.Rules.Team)
-	if err != nil {
-		return nil, fmt.Errorf("read team members: %w", err)
-	}
+func (c *Collector) spellings(members []fah.Member, credits eventCredit, names []string) map[string]string {
 	known := make(map[string]string, len(members))
 	for _, m := range members {
 		known[normalize(m.Name)] = m.Name
@@ -357,9 +465,11 @@ func (c *Collector) spellings(ctx context.Context, credits eventCredit) (map[str
 			}
 		}
 	}
-	out := make(map[string]string, len(c.names))
-	for _, name := range c.names {
-		if donor, ok := c.opts.Aliases[name]; ok {
+	out := make(map[string]string, len(names))
+	for _, name := range names {
+		if donor, ok := c.resolved[name]; ok {
+			out[name] = donor
+		} else if donor, ok := c.opts.Aliases[name]; ok {
 			out[name] = donor
 		} else if donor, ok := known[normalize(name)]; ok {
 			out[name] = donor
@@ -367,10 +477,13 @@ func (c *Collector) spellings(ctx context.Context, credits eventCredit) (map[str
 			out[name] = strings.ReplaceAll(name, " ", "_")
 		}
 	}
-	return out, nil
+	return out
 }
 
 func (c *Collector) readUser(ctx context.Context, wanted, alternate string) (fah.User, error) {
+	if _, ok := c.resolved[wanted]; ok {
+		return c.api.User(ctx, alternate)
+	}
 	u, err := c.api.User(ctx, wanted)
 	if errors.Is(err, fah.ErrNotFound) && alternate != wanted {
 		return c.api.User(ctx, alternate)

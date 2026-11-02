@@ -46,7 +46,6 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/team/monthly":
 		fmt.Fprintf(w, `[{"name":"Default (No team specified)","team":0,"credit":9,"wus":9},{"name":"LTT","team":%d,"credit":8,"wus":8}]`, team)
 	case r.URL.Path == "/user/big":
-		f.userReads.Add(1)
 		fmt.Fprintf(w, `{"name":"big","id":1,"teams":[{"team":%d,"score":%d,"wus":600}]}`, team, f.bigScore.Load())
 	case r.URL.Path == fmt.Sprintf("/team/%d/members", team):
 		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7],["ExactName",6,2,800,8]]`)
@@ -63,6 +62,7 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/user/small" && f.smallDown.Load():
 		w.WriteHeader(http.StatusInternalServerError)
 	case r.URL.Path == "/user/small":
+		f.userReads.Add(1)
 		fmt.Fprintf(w, `{"name":"small","id":2,"teams":[{"team":%d,"score":500,"wus":20}]}`, team)
 	default:
 		http.NotFound(w, r)
@@ -184,6 +184,7 @@ func TestPointsGrowFromBaselineAndUnassignedTeamHidden(t *testing.T) {
 	}
 	api.teamScore.Store(2)
 	api.bigScore.Store(12000)
+	api.bigCredit.Store(6000)
 	advance(now, time.Hour)
 	if err := c.Tick(ctx); err != nil {
 		t.Fatal(err)
@@ -354,5 +355,44 @@ func TestReappearingNameWithLargeScoreIsNotAllEventPoints(t *testing.T) {
 	}
 	if oldie, ok := c.View().Detail("Oldie"); !ok || oldie.Standing.Points != 0 {
 		t.Errorf("oldie = %+v", oldie.Standing)
+	}
+}
+
+func TestBigFoldersAvoidPerDonorReads(t *testing.T) {
+	t.Parallel()
+	api, c, now := setup(t)
+	ctx := context.Background()
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if st := c.Status(); st.UpdatedAt.IsZero() {
+		t.Errorf("status = %+v", st)
+	}
+	api.bigCredit.Store(9000)
+	api.teamScore.Store(2)
+	advance(now, 10*time.Minute)
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if big, _ := c.View().Detail("big"); big.Standing.Points != 9000 {
+		t.Errorf("big = %+v", big.Standing)
+	}
+}
+
+func TestUnmatchedNamesWaitForTheHourlyRetry(t *testing.T) {
+	t.Parallel()
+	api, c, now := setup(t)
+	ctx := context.Background()
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	api.newcomer.Store(true)
+	api.teamScore.Store(2)
+	advance(now, 10*time.Minute)
+	if err := c.Tick(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := c.View().Detail("late"); ok {
+		t.Error("retried an unmatched name before the hour")
 	}
 }

@@ -13,6 +13,7 @@ import (
 	"github.com/USA-RedDragon/configulator/v2"
 	"github.com/USA-RedDragon/fah-dashboard/internal/collector"
 	"github.com/USA-RedDragon/fah-dashboard/internal/config"
+	"github.com/USA-RedDragon/fah-dashboard/internal/fah"
 	"github.com/USA-RedDragon/fah-dashboard/internal/server"
 	"github.com/USA-RedDragon/fah-dashboard/internal/stats"
 	"github.com/USA-RedDragon/fah-dashboard/internal/store"
@@ -39,7 +40,7 @@ func startOn(t *testing.T, bind string, view server.ViewFunc) string {
 
 	srv, err := server.NewServer(&config.Config{HTTP: config.HTTP{Bind: bind, Port: addr.Port}}, view, func() collector.Status {
 		return collector.Status{Sweeping: true, Read: 3, Total: 9}
-	})
+	}, func() *fah.Network { return &fah.Network{Servers: 1} })
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -79,6 +80,7 @@ func TestRoutes(t *testing.T) {
 		"/donor/anyone":                 http.StatusOK,
 		"/api/overview":                 http.StatusOK,
 		"/api/status":                   http.StatusOK,
+		"/api/network":                  http.StatusOK,
 		"/api/donors/scorching%20arrow": http.StatusOK,
 		"/api/donors/nobody":            http.StatusNotFound,
 	} {

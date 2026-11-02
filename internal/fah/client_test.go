@@ -155,3 +155,31 @@ func TestMonthlySendsYearAndMonth(t *testing.T) {
 		t.Errorf("teams = %+v, err = %v", teams, err)
 	}
 }
+
+func TestNetworkMergesAssignServers(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/as" {
+			_, _ = w.Write([]byte(`["a","b"]`))
+			return
+		}
+		_, _ = w.Write([]byte(`{"ws":[
+			{"address":"1.1.1.1","version":"10","types":{"0x28":{"total":10,"beta":2,"public":8,"rate":0.5},"0xa8":{"total":5,"beta":0,"public":5,"rate":0.1}}},
+			{"address":"2.2.2.2","version":"0.0","types":{"0x28":{"total":99,"beta":0,"public":99,"rate":9}}}
+		]}`))
+	}))
+	t.Cleanup(srv.Close)
+	c := fah.New(fah.WithBaseURL(srv.URL), fah.WithAssignBase(srv.URL), fah.WithHTTPClient(srv.Client()))
+
+	n, err := c.Network(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if n.Servers != 1 || len(n.Types) != 2 {
+		t.Fatalf("network = %+v", n)
+	}
+	first := n.Types[0]
+	if first.Name != "0x28" || first.Total != 10 || first.Public != 8 || first.Beta != 2 || first.RatePerHour != 3600 {
+		t.Errorf("first = %+v", first)
+	}
+}

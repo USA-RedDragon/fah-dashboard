@@ -38,26 +38,28 @@ function tile(label, value, sub) {
 
 function until(iso) {
   const min = Math.round((new Date(iso) - Date.now()) / 60000);
-  if (min < 1) return "next batch due now";
-  return `next in about ${min} min`;
+  return min < 1 ? "next F@H batch due" : `next F@H batch in about ${min} min`;
 }
 
+const known = (iso) => iso && new Date(iso).getUTCFullYear() > 2000;
+
 function drawStatus(st) {
+  const updated = st && known(st.updatedAt) ? st.updatedAt : lastSample;
   const parts = [];
-  if (lastSample) parts.push(`Last stats batch ${ago(lastSample)}`);
-  if (st && st.sweeping) parts.push(`Updating from F@H: ${st.read} of ${st.total}`);
-  else if (st && new Date(st.nextBatch).getUTCFullYear() > 2000) parts.push(until(st.nextBatch));
+  if (known(updated)) parts.push(`Updated ${ago(updated)}`);
+  if (st && st.sweeping) parts.push(`checking smaller folders: ${st.read} of ${st.total}`);
+  else if (st && known(st.nextBatch)) parts.push(until(st.nextBatch));
   $("status").textContent = parts.join(" · ");
 }
 
 async function watchStatus() {
-  let was = false;
+  let seen = null;
   async function tick() {
     try {
       const st = await (await fetch("/api/status")).json();
       drawStatus(st);
-      if (was && !st.sweeping) refreshNow();
-      was = st.sweeping;
+      if (seen && st.updatedAt !== seen) refreshNow();
+      seen = st.updatedAt;
     } catch (e) {
       drawStatus(null);
     }
@@ -139,6 +141,7 @@ function initOverview() {
     $("unresolved").hidden = !missing.length;
     $("unresolved").textContent = `${missing.length} sign-ups are not shown because their forum name does not match a Folding@home donor: ${missing.join(", ")}.`;
 
+    drawNetwork();
     const top = o.teams.slice(0, 10);
     if (ltt && !top.includes(ltt)) top.push(ltt);
     const scale = Math.max(...top.map((t) => t.credit), 1);
@@ -147,6 +150,21 @@ function initOverview() {
       <div class="fill" style="width:${(100 * t.credit) / scale}%"></div>
     </div>`).join("");
   });
+}
+
+async function drawNetwork() {
+  try {
+    const res = await fetch("/api/network");
+    if (!res.ok) return;
+    const n = await res.json();
+    const sum = (k) => n.types.reduce((a, t) => a + t[k], 0);
+    const rows = n.types.map((t) => `<tr><td>${esc(t.name)}</td><td>${short(t.total)}</td><td>${short(t.ratePerHour)}/hr</td></tr>`).join("");
+    $("network").innerHTML = `<thead><tr><th scope="col">Core type</th><th scope="col">Jobs</th><th scope="col">Assigned</th></tr></thead>
+      <tbody>${rows}<tr><td><b>Total</b></td><td><b>${short(sum("total"))}</b></td><td><b>${short(sum("ratePerHour"))}/hr</b></td></tr></tbody>`;
+    $("networkNote").textContent = `${n.servers} work servers. Estimates published by F@H.`;
+  } catch (e) {
+    $("networkNote").textContent = "Network stats are unavailable right now.";
+  }
 }
 
 function axisTicks(lo, hi, count) {

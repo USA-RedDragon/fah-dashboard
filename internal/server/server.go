@@ -16,6 +16,7 @@ import (
 
 	"github.com/USA-RedDragon/fah-dashboard/internal/collector"
 	"github.com/USA-RedDragon/fah-dashboard/internal/config"
+	"github.com/USA-RedDragon/fah-dashboard/internal/fah"
 	"github.com/USA-RedDragon/fah-dashboard/internal/stats"
 )
 
@@ -30,12 +31,15 @@ type ViewFunc func() *stats.View
 // StatusFunc returns the collector's current activity.
 type StatusFunc func() collector.Status
 
+// NetworkFunc returns the latest F@H network snapshot.
+type NetworkFunc func() *fah.Network
+
 type Server struct {
 	server *http.Server
 	config *config.Config
 }
 
-func NewServer(cfg *config.Config, view ViewFunc, status StatusFunc) (*Server, error) {
+func NewServer(cfg *config.Config, view ViewFunc, status StatusFunc, network NetworkFunc) (*Server, error) {
 	web, err := fs.Sub(webFS, "web")
 	if err != nil {
 		return nil, fmt.Errorf("open web assets: %w", err)
@@ -45,19 +49,27 @@ func NewServer(cfg *config.Config, view ViewFunc, status StatusFunc) (*Server, e
 			Addr:              net.JoinHostPort(strings.Trim(cfg.HTTP.Bind, "[]"), strconv.Itoa(cfg.HTTP.Port)),
 			ReadHeaderTimeout: defTimeout,
 			WriteTimeout:      defTimeout,
-			Handler:           newMux(web, view, status),
+			Handler:           newMux(web, view, status, network),
 		},
 		config: cfg,
 	}, nil
 }
 
-func newMux(web fs.FS, view ViewFunc, status StatusFunc) *http.ServeMux {
+func newMux(web fs.FS, view ViewFunc, status StatusFunc, network NetworkFunc) *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
 	mux.HandleFunc("GET /api/status", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, status())
+	})
+	mux.HandleFunc("GET /api/network", func(w http.ResponseWriter, _ *http.Request) {
+		n := network()
+		if n == nil {
+			http.Error(w, "no network stats yet", http.StatusServiceUnavailable)
+			return
+		}
+		writeJSON(w, n)
 	})
 	mux.HandleFunc("GET /api/overview", func(w http.ResponseWriter, _ *http.Request) {
 		v := view()
