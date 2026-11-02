@@ -82,6 +82,8 @@ td a:hover { text-decoration-thickness: 2px; }
 .down { color: var(--down); }
 .muted { color: var(--muted); }
 .note { color: var(--muted); font-size: 13px; margin: 10px 0 0; }
+details.note summary { cursor: pointer; }
+details.note p { margin: 6px 0 0; }
 .bars { display: grid; gap: 9px; }
 .bar { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 8px; font-size: 13.5px; }
 .bar .fill { grid-column: 1 / -1; height: 8px; border-radius: 0 4px 4px 0; background: var(--series); min-width: 2px; }

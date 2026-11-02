@@ -139,7 +139,8 @@ function initOverview() {
     drawBoard();
     const missing = o.unresolved || [];
     $("unresolved").hidden = !missing.length;
-    $("unresolved").textContent = `${missing.length} sign-ups are not shown because their forum name does not match a Folding@home donor: ${missing.join(", ")}.`;
+    $("unresolved").querySelector("summary").textContent = `${missing.length} sign-ups not matched`;
+    $("unresolved").querySelector("p").textContent = missing.join(", ");
 
     drawNetwork();
     const top = o.teams.slice(0, 10);
@@ -161,7 +162,7 @@ async function drawNetwork() {
     const rows = n.types.map((t) => `<tr><td>${esc(t.name)}</td><td>${short(t.total)}</td><td>${short(t.ratePerHour)}/hr</td></tr>`).join("");
     $("network").innerHTML = `<thead><tr><th scope="col">Core type</th><th scope="col">Jobs</th><th scope="col">Assigned</th></tr></thead>
       <tbody>${rows}<tr><td><b>Total</b></td><td><b>${short(sum("total"))}</b></td><td><b>${short(sum("ratePerHour"))}/hr</b></td></tr></tbody>`;
-    $("networkNote").textContent = `${n.servers} work servers. Estimates published by F@H.`;
+    $("networkNote").textContent = `${n.servers} work servers`;
   } catch (e) {
     $("networkNote").textContent = "Network stats are unavailable right now.";
   }
