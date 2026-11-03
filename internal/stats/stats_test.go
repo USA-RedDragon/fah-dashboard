@@ -167,7 +167,7 @@ func TestIdleDaysLowerTheForecastSpread(t *testing.T) {
 	}
 	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a"}}, samples, nil, date(8, 12))
 	a, _ := view.Detail("a")
-	if len(a.Daily) != 7 || a.Daily[1].Points != 0 {
+	if len(a.Daily) != 8 || a.Daily[0].Points != 666 || a.Daily[2].Points != 0 {
 		t.Fatalf("daily = %+v", a.Daily)
 	}
 	if a.Standing.Forecast.Low >= a.Standing.Forecast.High {
@@ -219,5 +219,21 @@ func TestMoveComparesWithFirstRankings(t *testing.T) {
 	}, nil, date(1, 23))
 	if b, _ := view.Detail("b"); b.Standing.RankChange24h != 1 {
 		t.Errorf("b = %+v", b.Standing)
+	}
+}
+
+func TestLateExactHistorySpreadsEarlierCredit(t *testing.T) {
+	t.Parallel()
+	now := date(2, 12)
+	view := stats.Build(rules(), []store.Donor{{ID: 1, Name: "a"}}, []store.Sample{
+		{DonorID: 1, At: date(2, 0), Score: 960, WUs: 96},
+		{DonorID: 1, At: now, Score: 1000, WUs: 100},
+	}, nil, now)
+	a, _ := view.Detail("a")
+	if len(a.Daily) != 2 || a.Daily[0].Points != 960 || a.Daily[0].WUs != 96 || a.Daily[1].Points != 40 || a.Daily[1].WUs != 4 {
+		t.Errorf("daily = %+v", a.Daily)
+	}
+	if e := a.Standing.Eligibility; e.ActiveDays != 1 || e.HiddenDays != 1 {
+		t.Errorf("eligibility = %+v", e)
 	}
 }

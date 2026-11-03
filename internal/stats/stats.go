@@ -222,7 +222,7 @@ func Build(rules Rules, donors []store.Donor, samples []store.Sample, teams []st
 			Standing: st,
 			Field:    len(standings),
 			History:  histories[st.ID],
-			Daily:    daily(seriesByID[st.ID], last),
+			Daily:    daily(rules, seriesByID[st.ID], last, true),
 		}
 		if i > 0 {
 			ahead := standings[i-1]
@@ -287,7 +287,7 @@ func forecast(rules Rules, s series, points int64, last time.Time) Forecast {
 	days := remaining.Hours() / 24
 
 	rate := currentRate(rules, s, points, last)
-	finished := finishedDays(s, last)
+	finished := finishedDays(rules, s, last)
 	f := Forecast{PointsPerDay: rate, Confident: len(finished) >= minForecastLen}
 
 	low, high := rate*(1-wideBand), rate*(1+wideBand)
@@ -318,10 +318,10 @@ func currentRate(rules Rules, s series, points int64, last time.Time) float64 {
 	return 0
 }
 
-func finishedDays(s series, last time.Time) []float64 {
+func finishedDays(rules Rules, s series, last time.Time) []float64 {
 	today := last.Truncate(day)
 	var out []float64
-	for _, d := range daily(s, last) {
+	for _, d := range daily(rules, s, last, true) {
 		start, err := time.Parse(time.DateOnly, d.Day)
 		if err == nil && start.Before(today) {
 			out = append(out, float64(d.Points))
@@ -338,22 +338,33 @@ func quantile(sorted []float64, q float64) float64 {
 	return sorted[lo] + (sorted[hi]-sorted[lo])*(pos-float64(lo))
 }
 
-// daily splits a donor's samples into UTC days from the first sample to last,
-// with idle days as zero. Credit lands in the day of the sweep that first
-// shows it, so it can differ from the day the work unit finished.
-func daily(s series, last time.Time) []DailyPoints {
+// daily splits a donor's samples into UTC days, with idle days as zero.
+// Credit lands in the day of the sweep that first shows it. When spread is
+// set and the donor's exact history starts after the event start, the credit
+// earned before the first sample is spread evenly over that span, because the
+// API cannot say which day it landed on.
+func daily(rules Rules, s series, last time.Time, spread bool) []DailyPoints {
 	if len(s.samples) == 0 {
 		return nil
 	}
-	first := s.samples[0].At.Truncate(day)
+	head := s.samples[0]
+	early := spread && s.donor.BaselineError == 0 && head.At.After(rules.Start)
+	first := head.At.Truncate(day)
+	if early {
+		first = rules.Start.Truncate(day)
+	}
 	out := make([]DailyPoints, 0, int(last.Sub(first)/day)+1)
 	for d := first; !d.After(last); d = d.Add(day) {
 		out = append(out, DailyPoints{Day: d.Format(time.DateOnly)})
 	}
 
 	var prevPoints, prevWUs int64
-	if s.donor.BaselineError != 0 {
-		prevPoints, prevWUs = s.points(s.samples[0]), s.wus(s.samples[0])
+	switch {
+	case early:
+		spreadBefore(out, first, rules.Start, head.At, s.points(head), s.wus(head))
+		prevPoints, prevWUs = s.points(head), s.wus(head)
+	case s.donor.BaselineError != 0:
+		prevPoints, prevWUs = s.points(head), s.wus(head)
 	}
 	for _, v := range s.samples {
 		i := min(int(v.At.Truncate(day).Sub(first)/day), len(out)-1)
@@ -365,12 +376,35 @@ func daily(s series, last time.Time) []DailyPoints {
 	return out
 }
 
+func spreadBefore(out []DailyPoints, first, from, to time.Time, points, wus int64) {
+	span := to.Sub(from).Seconds()
+	var givenPoints, givenWUs int64
+	for i := range out {
+		lo := latest(first.Add(time.Duration(i)*day), from)
+		hi := first.Add(time.Duration(i+1) * day)
+		if hi.After(to) {
+			hi = to
+		}
+		if !hi.After(lo) {
+			continue
+		}
+		share := hi.Sub(from).Seconds() / span
+		p, w := int64(float64(points)*share), int64(float64(wus)*share)
+		if !hi.Before(to) {
+			p, w = points, wus
+		}
+		out[i].Points += p - givenPoints
+		out[i].WUs += w - givenWUs
+		givenPoints, givenWUs = p, w
+	}
+}
+
 // eligibility counts days with a credited work unit. The API has no daily
 // history, so days before the first sample are unknown. HiddenDays is the most
 // of those that can have been active, and ActiveDays is a lower bound.
 func eligibility(rules Rules, s series, st Standing, last time.Time) Eligibility {
 	e := Eligibility{}
-	days := daily(s, last)
+	days := daily(rules, s, last, false)
 	for _, d := range days {
 		if d.WUs > 0 {
 			e.ActiveDays++
