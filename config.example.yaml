@@ -25,8 +25,8 @@ event:
   min-wus: 50
 # Stats collection settings
 collect:
-  # CSV export URL of the sign-up sheet
-  roster-url: "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474"
+  # Comma-separated CSV export URLs of the sign-up sheet and the official daily stats sheet
+  roster-url: "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474,https://docs.google.com/spreadsheets/d/1D1mlywhhOAapgQFvMZ6rClPpiYFmQQeeZlmw5nBsB-Y/export?format=csv"
   # Root URL of the Folding@home stats API
   api-url: "https://api.foldingathome.org"
   # Seconds between checks for a new stats batch

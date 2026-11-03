@@ -48,11 +48,15 @@ func (f *fakeAPI) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Path == "/user/big":
 		fmt.Fprintf(w, `{"name":"big","id":1,"teams":[{"team":%d,"score":%d,"wus":600}]}`, team, f.bigScore.Load())
 	case r.URL.Path == fmt.Sprintf("/team/%d/members", team):
-		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7],["ExactName",6,2,800,8]]`)
+		fmt.Fprint(w, `[["name","id","rank","score","wus"],["space_name",3,1,700,7],["ExactName",6,2,800,8],["Twin_LTT",10,3,800,8]]`)
 	case r.URL.Path == "/user/Oldie" && f.newcomer.Load():
 		fmt.Fprintf(w, `{"name":"Oldie","id":8,"teams":[{"team":%d,"score":90000,"wus":90}]}`, team)
 	case r.URL.Path == "/user/lifer":
 		fmt.Fprintf(w, `{"name":"lifer","id":7,"teams":[{"team":%d,"score":90000,"wus":90}]}`, team)
+	case r.URL.Path == "/user/Twin":
+		fmt.Fprint(w, `{"name":"Twin","id":9,"teams":[{"team":1,"score":500,"wus":5}]}`)
+	case r.URL.Path == "/user/Twin_LTT":
+		fmt.Fprintf(w, `{"name":"Twin_LTT","id":10,"teams":[{"team":%d,"score":800,"wus":8}]}`, team)
 	case r.URL.Path == "/user/Exact_Name":
 		fmt.Fprintf(w, `{"name":"Exact_Name","id":5,"teams":[{"team":%d,"score":1,"wus":1}]}`, team)
 	case r.URL.Path == "/user/space_name":
@@ -97,7 +101,7 @@ func setup(t *testing.T) (*fakeAPI, *collector.Collector, *atomic.Pointer[time.T
 		RosterRefresh: time.Hour,
 		Aliases:       collector.ParseAliases("Old Name = lifer , broken"),
 		Roster: func(context.Context) ([]string, error) {
-			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name", "Old Name", "Oldie"}, nil
+			return []string{"big", "small", "missing", "Space Name", "late", "Exact_Name", "Old Name", "Oldie", "Twin LTT"}, nil
 		},
 		Now: func() time.Time { return *now.Load() },
 	})
@@ -394,5 +398,19 @@ func TestUnmatchedNamesWaitForTheHourlyRetry(t *testing.T) {
 	}
 	if _, ok := c.View().Detail("late"); ok {
 		t.Error("retried an unmatched name before the hour")
+	}
+}
+
+func TestSameNameOnAnotherTeamFallsBackToTheTeamAccount(t *testing.T) {
+	t.Parallel()
+	_, c, _ := setup(t)
+	if err := c.Tick(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := c.View().Detail("Twin_LTT"); !ok {
+		t.Error("team account not used")
+	}
+	if _, ok := c.View().Detail("Twin"); ok {
+		t.Error("other-team account shown")
 	}
 }

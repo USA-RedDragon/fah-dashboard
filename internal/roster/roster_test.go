@@ -26,6 +26,18 @@ func TestParseKeepsValidUniqueNames(t *testing.T) {
 	}
 }
 
+func TestParseKeepsEveryNameWithoutValidation(t *testing.T) {
+	t.Parallel()
+	sheet := "Rank,Change,LTT Forum Name ,Today's Points\n1,+2,HayesK,5\n2,,sazrocks,4\n,,,\n"
+	names, err := roster.Parse(strings.NewReader(sheet))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if want := []string{"HayesK", "sazrocks"}; !slices.Equal(names, want) {
+		t.Errorf("names = %v", names)
+	}
+}
+
 func TestParseRejectsChangedSheet(t *testing.T) {
 	t.Parallel()
 	if _, err := roster.Parse(strings.NewReader("a,b\n1,2\n")); !errors.Is(err, roster.ErrBadSheet) {

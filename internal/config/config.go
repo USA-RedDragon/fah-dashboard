@@ -40,7 +40,7 @@ type Event struct {
 }
 
 type Collect struct {
-	RosterURL      string  `name:"roster-url" description:"CSV export URL of the sign-up sheet" default:"https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474"`
+	RosterURL      string  `name:"roster-url" description:"Comma-separated CSV export URLs of the sign-up sheet and the official daily stats sheet" default:"https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474,https://docs.google.com/spreadsheets/d/1D1mlywhhOAapgQFvMZ6rClPpiYFmQQeeZlmw5nBsB-Y/export?format=csv"`
 	APIURL         string  `name:"api-url" description:"Root URL of the Folding@home stats API" default:"https://api.foldingathome.org"`
 	PollSeconds    int     `name:"poll-seconds" description:"Seconds between checks for a new stats batch" default:"60"`
 	MinSweepSecs   int     `name:"min-sweep-seconds" description:"Minimum seconds between reads of every donor" default:"300"`

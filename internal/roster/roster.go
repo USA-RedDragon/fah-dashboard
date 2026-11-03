@@ -20,7 +20,8 @@ const (
 // ErrBadSheet is returned when the sheet does not have the expected columns.
 var ErrBadSheet = errors.New("sheet is missing an expected column")
 
-// Parse returns the unique names whose F@H validation is VALID.
+// Parse returns the unique names in the sheet. A sheet with an F@H validation
+// column keeps only the names marked VALID.
 func Parse(r io.Reader) ([]string, error) {
 	rows, err := csv.NewReader(r).ReadAll()
 	if err != nil {
@@ -39,20 +40,42 @@ func Parse(r io.Reader) ([]string, error) {
 			fahIdx = i
 		}
 	}
-	if nameIdx < 0 || fahIdx < 0 {
+	if nameIdx < 0 {
 		return nil, ErrBadSheet
 	}
 
 	seen := map[string]bool{}
 	names := make([]string, 0, len(rows)-1)
 	for _, row := range rows[1:] {
+		if nameIdx >= len(row) {
+			continue
+		}
 		name := strings.TrimSpace(row[nameIdx])
 		key := strings.ToLower(name)
-		if name == "" || seen[key] || strings.TrimSpace(row[fahIdx]) != validValue {
+		if name == "" || seen[key] || (fahIdx >= 0 && strings.TrimSpace(row[fahIdx]) != validValue) {
 			continue
 		}
 		seen[key] = true
 		names = append(names, name)
+	}
+	return names, nil
+}
+
+// FetchAll reads every sheet and returns the names in any of them.
+func FetchAll(ctx context.Context, client *http.Client, urls []string) ([]string, error) {
+	seen := map[string]bool{}
+	var names []string
+	for _, url := range urls {
+		got, err := Fetch(ctx, client, url)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %w", url, err)
+		}
+		for _, name := range got {
+			if key := strings.ToLower(name); !seen[key] {
+				seen[key] = true
+				names = append(names, name)
+			}
+		}
 	}
 	return names, nil
 }

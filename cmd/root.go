@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os"
+	"strings"
 	"syscall"
 	"time"
 
@@ -144,7 +145,7 @@ func newCollector(cfg *config.Config, st *store.Store, version string) (*collect
 		Poll:          time.Duration(cfg.Collect.PollSeconds) * time.Second,
 		MinSweep:      time.Duration(cfg.Collect.MinSweepSecs) * time.Second,
 		RosterRefresh: time.Duration(cfg.Collect.RosterSeconds) * time.Second,
-		Roster:        collector.HTTPRoster(roster.Fetch, cfg.Collect.RosterURL),
+		Roster:        collector.HTTPRoster(roster.FetchAll, strings.Split(cfg.Collect.RosterURL, ",")),
 		Aliases:       collector.ParseAliases(cfg.Collect.Aliases),
 	}), nil
 }

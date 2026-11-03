@@ -81,7 +81,7 @@ func configApplyDefaults(cfg *Config, _ string, set configulator.SetOrigin) erro
 	set("event.min-points", configulator.LayerDefault, "default tag")
 	cfg.Event.MinWUs = int64(50)
 	set("event.min-wus", configulator.LayerDefault, "default tag")
-	cfg.Collect.RosterURL = "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474"
+	cfg.Collect.RosterURL = "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474,https://docs.google.com/spreadsheets/d/1D1mlywhhOAapgQFvMZ6rClPpiYFmQQeeZlmw5nBsB-Y/export?format=csv"
 	set("collect.roster-url", configulator.LayerDefault, "default tag")
 	cfg.Collect.APIURL = "https://api.foldingathome.org"
 	set("collect.api-url", configulator.LayerDefault, "default tag")
@@ -390,7 +390,7 @@ func configRegisterPFlags(fs *pflag.FlagSet, o *cpflag.Options) error {
 	fs.Var(impl.NewInt(30), names[7], "Active days needed for prizes and badges")
 	fs.Int64(names[8], 1000000, "Points needed for prizes and badges")
 	fs.Int64(names[9], 50, "Work units needed for prizes and badges")
-	fs.String(names[10], "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474", "CSV export URL of the sign-up sheet")
+	fs.String(names[10], "https://docs.google.com/spreadsheets/d/1aETM39IfUw1adcLsE51NTye8Kd37CIFTqq89jDShAVw/export?format=csv&gid=156779474,https://docs.google.com/spreadsheets/d/1D1mlywhhOAapgQFvMZ6rClPpiYFmQQeeZlmw5nBsB-Y/export?format=csv", "Comma-separated CSV export URLs of the sign-up sheet and the official daily stats sheet")
 	fs.String(names[11], "https://api.foldingathome.org", "Root URL of the Folding@home stats API")
 	fs.Var(impl.NewInt(60), names[12], "Seconds between checks for a new stats batch")
 	fs.Var(impl.NewInt(300), names[13], "Minimum seconds between reads of every donor")

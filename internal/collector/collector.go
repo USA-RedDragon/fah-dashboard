@@ -256,10 +256,29 @@ func (c *Collector) publish(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	view := stats.Build(c.opts.Rules, donors, samples, teams, c.opts.Now().UTC())
+	view := stats.Build(c.opts.Rules, c.current(donors), samples, teams, c.opts.Now().UTC())
 	view.Overview.Unresolved = c.unresolved
 	c.view.Store(view)
 	return nil
+}
+
+// current keeps the donors the roster maps to now, so an account a name used
+// to resolve to drops off. Before the first sweep every donor is kept.
+func (c *Collector) current(donors []store.Donor) []store.Donor {
+	if len(c.resolved) == 0 {
+		return donors
+	}
+	keep := make(map[string]bool, len(c.resolved))
+	for _, donor := range c.resolved {
+		keep[donor] = true
+	}
+	out := make([]store.Donor, 0, len(donors))
+	for _, d := range donors {
+		if keep[d.Name] {
+			out = append(out, d)
+		}
+	}
+	return out
 }
 
 func (c *Collector) publishUpdate(ctx context.Context) error {
@@ -480,15 +499,37 @@ func (c *Collector) spellings(members []fah.Member, credits eventCredit, names [
 	return out
 }
 
+// readUser tries the sign-up name first. A donor with that exact name who
+// has never folded for the team is someone else, so the alternate spelling is
+// tried then too.
 func (c *Collector) readUser(ctx context.Context, wanted, alternate string) (fah.User, error) {
 	if _, ok := c.resolved[wanted]; ok {
 		return c.api.User(ctx, alternate)
 	}
-	u, err := c.api.User(ctx, wanted)
-	if errors.Is(err, fah.ErrNotFound) && alternate != wanted {
+	if _, ok := c.opts.Aliases[wanted]; ok {
 		return c.api.User(ctx, alternate)
 	}
-	return u, err
+	u, err := c.api.User(ctx, wanted)
+	if alternate == wanted {
+		return u, err
+	}
+	if errors.Is(err, fah.ErrNotFound) {
+		return c.api.User(ctx, alternate)
+	}
+	if err != nil {
+		return u, err
+	}
+	if score, _ := u.TeamScore(c.opts.Rules.Team); score > 0 {
+		return u, nil
+	}
+	alt, altErr := c.api.User(ctx, alternate)
+	if altErr != nil {
+		return u, nil //nolint:nilerr // the exact-name account stands when the alternate cannot be read
+	}
+	if altScore, _ := alt.TeamScore(c.opts.Rules.Team); altScore > 0 {
+		return alt, nil
+	}
+	return u, nil
 }
 
 func normalize(name string) string {
@@ -645,9 +686,9 @@ func ParseAliases(raw string) map[string]string {
 }
 
 // HTTPRoster adapts a roster fetcher to a RosterFunc.
-func HTTPRoster(fetch func(context.Context, *http.Client, string) ([]string, error), url string) RosterFunc {
+func HTTPRoster(fetch func(context.Context, *http.Client, []string) ([]string, error), urls []string) RosterFunc {
 	client := &http.Client{Timeout: time.Minute}
 	return func(ctx context.Context) ([]string, error) {
-		return fetch(ctx, client, url)
+		return fetch(ctx, client, urls)
 	}
 }
