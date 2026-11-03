@@ -5,6 +5,6 @@ internal/fah/client.go	96	81
 internal/fah/network.go	46	42
 internal/roster/roster.go	45	21
 internal/server/server.go	50	42
-internal/stats/stats.go	228	219
+internal/stats/stats.go	250	241
 internal/store/store.go	84	67
 main.go	7	0
