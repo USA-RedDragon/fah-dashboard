@@ -1,9 +1,9 @@
 cmd/root.go	56	0
-internal/collector/collector.go	306	263
+internal/collector/collector.go	329	279
 internal/config/config.go	15	11
 internal/fah/client.go	96	81
 internal/fah/network.go	46	42
-internal/roster/roster.go	32	20
+internal/roster/roster.go	45	21
 internal/server/server.go	50	42
 internal/stats/stats.go	228	219
 internal/store/store.go	84	67
