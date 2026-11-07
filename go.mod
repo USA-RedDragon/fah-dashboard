@@ -1,6 +1,6 @@
 module github.com/USA-RedDragon/fah-dashboard
 
-go 1.27.2
+go 1.27.3
 
 require (
 	github.com/USA-RedDragon/configulator/v2 v2.5.0
@@ -15,8 +15,8 @@ require (
 )
 
 require (
-	github.com/99designs/gqlgen v0.17.95 // indirect
-	github.com/agnivade/levenshtein v1.2.1 // indirect
+	github.com/99designs/gqlgen v0.17.98 // indirect
+	github.com/agnivade/levenshtein v1.2.2 // indirect
 	github.com/dave/jennifer v1.7.1 // indirect
 	github.com/dustin/go-humanize v1.1.0 // indirect
 	github.com/google/go-cmp v0.7.0 // indirect
@@ -26,11 +26,11 @@ require (
 	github.com/ncruces/go-strftime v1.1.0 // indirect
 	github.com/remyoudompheng/bigfft v0.0.0-20230129092748-24d4a6f8daec // indirect
 	github.com/sosodev/duration v1.4.0 // indirect
-	github.com/urfave/cli/v3 v3.11.0 // indirect
-	github.com/vektah/gqlparser/v2 v2.5.37 // indirect
+	github.com/urfave/cli/v3 v3.14.0 // indirect
+	github.com/vektah/gqlparser/v2 v2.5.64 // indirect
 	golang.org/x/mod v0.42.0 // indirect
 	golang.org/x/sys v0.49.0 // indirect
-	golang.org/x/text v0.42.0 // indirect
+	golang.org/x/text v0.43.0 // indirect
 	golang.org/x/tools v0.52.0 // indirect
 	modernc.org/libc v1.79.0 // indirect
 	modernc.org/mathutil v1.7.1 // indirect
